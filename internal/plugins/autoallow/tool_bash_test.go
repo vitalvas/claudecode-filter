@@ -10,13 +10,14 @@ import (
 )
 
 func TestHandleBash(t *testing.T) {
-	p := New()
+	h := hook.BuildChain(New())
 
 	t.Run("allows go test", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "go test ./..."})
-		result := p.OnPermissionRequest(hook.Input{
-			ToolName:  "Bash",
-			ToolInput: toolInput,
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
 		})
 
 		require.NotNil(t, result)
@@ -28,9 +29,10 @@ func TestHandleBash(t *testing.T) {
 
 	t.Run("allows go build", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "go build ./..."})
-		result := p.OnPermissionRequest(hook.Input{
-			ToolName:  "Bash",
-			ToolInput: toolInput,
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
 		})
 
 		require.NotNil(t, result)
@@ -42,9 +44,10 @@ func TestHandleBash(t *testing.T) {
 
 	t.Run("allows yake tests", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "yake tests"})
-		result := p.OnPermissionRequest(hook.Input{
-			ToolName:  "Bash",
-			ToolInput: toolInput,
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
 		})
 
 		require.NotNil(t, result)
@@ -56,9 +59,10 @@ func TestHandleBash(t *testing.T) {
 
 	t.Run("allows golangci-lint run", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "golangci-lint run ./..."})
-		result := p.OnPermissionRequest(hook.Input{
-			ToolName:  "Bash",
-			ToolInput: toolInput,
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
 		})
 
 		require.NotNil(t, result)
@@ -70,9 +74,10 @@ func TestHandleBash(t *testing.T) {
 
 	t.Run("does not allow unknown command", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "rm -rf /"})
-		result := p.OnPermissionRequest(hook.Input{
-			ToolName:  "Bash",
-			ToolInput: toolInput,
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
 		})
 
 		assert.Nil(t, result)
@@ -80,9 +85,10 @@ func TestHandleBash(t *testing.T) {
 
 	t.Run("does not allow partial prefix match", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "go testing"})
-		result := p.OnPermissionRequest(hook.Input{
-			ToolName:  "Bash",
-			ToolInput: toolInput,
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
 		})
 
 		assert.Nil(t, result)

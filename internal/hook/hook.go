@@ -12,12 +12,22 @@ const (
 	PermissionDeny  = "deny"
 )
 
-// Filter is the interface for pluggable hook filters.
-type Filter interface {
-	OnPreToolUse(input Input) *Result
-	OnPermissionRequest(input Input) *Result
-	OnUserPromptSubmit(input Input) *Result
-	OnSessionEnd(input Input)
+// Handler processes a hook input and returns a result.
+type Handler func(Input) *Result
+
+// Middleware wraps a handler with additional logic.
+type Middleware func(Handler) Handler
+
+// BuildChain composes middlewares into a single handler.
+// First middleware in the list runs first.
+func BuildChain(middlewares ...Middleware) Handler {
+	handler := Handler(func(_ Input) *Result { return nil })
+
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		handler = middlewares[i](handler)
+	}
+
+	return handler
 }
 
 // Input represents the JSON payload from a Claude Code hook event.
@@ -26,7 +36,7 @@ type Input struct {
 	CWD           string `json:"cwd"`
 	HookEventName string `json:"hook_event_name"`
 
-	// PreToolUse fields
+	// PreToolUse / PermissionRequest fields
 	ToolName  string          `json:"tool_name,omitempty"`
 	ToolInput json.RawMessage `json:"tool_input,omitempty"`
 

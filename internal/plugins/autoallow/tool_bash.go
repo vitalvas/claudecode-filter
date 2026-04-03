@@ -51,7 +51,7 @@ var allowedBashPrefixes = []string{
 	"yake tests",
 }
 
-func (p *Plugin) handleBash(input hook.Input) *hook.Result {
+func handleBash(input hook.Input) *hook.Result {
 	var bashInput hook.BashToolInput
 	if err := json.Unmarshal(input.ToolInput, &bashInput); err != nil {
 		return nil

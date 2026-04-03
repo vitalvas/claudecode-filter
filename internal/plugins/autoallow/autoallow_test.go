@@ -7,40 +7,24 @@ import (
 	"github.com/vitalvas/claudecode-filter/internal/hook"
 )
 
-func TestOnPermissionRequestOtherTools(t *testing.T) {
-	p := New()
+func TestPassthrough(t *testing.T) {
+	h := hook.BuildChain(New())
 
-	t.Run("ignores non-bash non-read tool", func(t *testing.T) {
-		result := p.OnPermissionRequest(hook.Input{
-			ToolName: "Write",
+	t.Run("passes non-PermissionRequest events", func(t *testing.T) {
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			ToolName:      "Bash",
 		})
 
 		assert.Nil(t, result)
 	})
-}
 
-func TestOnPreToolUse(t *testing.T) {
-	p := New()
+	t.Run("passes unknown tool in PermissionRequest", func(t *testing.T) {
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Write",
+		})
 
-	t.Run("returns nil", func(t *testing.T) {
-		result := p.OnPreToolUse(hook.Input{})
 		assert.Nil(t, result)
-	})
-}
-
-func TestOnUserPromptSubmit(t *testing.T) {
-	p := New()
-
-	t.Run("returns nil", func(t *testing.T) {
-		result := p.OnUserPromptSubmit(hook.Input{Prompt: "test"})
-		assert.Nil(t, result)
-	})
-}
-
-func TestOnSessionEnd(t *testing.T) {
-	p := New()
-
-	t.Run("does nothing", func(_ *testing.T) {
-		p.OnSessionEnd(hook.Input{})
 	})
 }

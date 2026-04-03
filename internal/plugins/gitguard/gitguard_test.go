@@ -21,16 +21,17 @@ func setupGitRepo(t *testing.T) string {
 	return dir
 }
 
-func TestOnPreToolUse(t *testing.T) {
-	p := New()
+func TestHandlePreToolUse(t *testing.T) {
+	h := hook.BuildChain(New())
 	gitRoot := setupGitRepo(t)
 
 	t.Run("blocks git commit", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git commit -m 'test'"})
-		result := p.OnPreToolUse(hook.Input{
-			CWD:       gitRoot,
-			ToolName:  "Bash",
-			ToolInput: toolInput,
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
 		})
 
 		require.NotNil(t, result)
@@ -43,10 +44,11 @@ func TestOnPreToolUse(t *testing.T) {
 
 	t.Run("blocks git push", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git push origin main"})
-		result := p.OnPreToolUse(hook.Input{
-			CWD:       gitRoot,
-			ToolName:  "Bash",
-			ToolInput: toolInput,
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
 		})
 
 		require.NotNil(t, result)
@@ -58,42 +60,46 @@ func TestOnPreToolUse(t *testing.T) {
 
 	t.Run("allows git status", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git status"})
-		result := p.OnPreToolUse(hook.Input{
-			CWD:       gitRoot,
-			ToolName:  "Bash",
-			ToolInput: toolInput,
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
 		})
 
 		assert.Nil(t, result)
 	})
 
 	t.Run("allows non-bash tool", func(t *testing.T) {
-		result := p.OnPreToolUse(hook.Input{
-			CWD:      gitRoot,
-			ToolName: "Read",
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Read",
 		})
 
 		assert.Nil(t, result)
 	})
 
 	t.Run("allows after marker consumed", func(t *testing.T) {
-		p.OnUserPromptSubmit(hook.Input{
-			CWD:    gitRoot,
-			Prompt: "ok git commit",
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "ok git commit",
 		})
 
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git commit -m 'test'"})
 		input := hook.Input{
-			CWD:       gitRoot,
-			ToolName:  "Bash",
-			ToolInput: toolInput,
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
 		}
 
-		result := p.OnPreToolUse(input)
+		result := h(input)
 		assert.Nil(t, result)
 
 		// Second attempt blocked again (one-time use)
-		result = p.OnPreToolUse(input)
+		result = h(input)
 		require.NotNil(t, result)
 
 		var output hook.PreToolUseOutputWrapper
@@ -102,30 +108,33 @@ func TestOnPreToolUse(t *testing.T) {
 	})
 
 	t.Run("any ok git unlocks any operation", func(t *testing.T) {
-		p.OnUserPromptSubmit(hook.Input{
-			CWD:    gitRoot,
-			Prompt: "ok git push",
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "ok git push",
 		})
 
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git commit -m 'test'"})
-		result := p.OnPreToolUse(hook.Input{
-			CWD:       gitRoot,
-			ToolName:  "Bash",
-			ToolInput: toolInput,
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
 		})
 
 		assert.Nil(t, result)
 	})
 }
 
-func TestOnUserPromptSubmit(t *testing.T) {
-	p := New()
+func TestHandleUserPromptSubmit(t *testing.T) {
+	h := hook.BuildChain(New())
 	gitRoot := setupGitRepo(t)
 
 	t.Run("creates marker", func(t *testing.T) {
-		p.OnUserPromptSubmit(hook.Input{
-			CWD:    gitRoot,
-			Prompt: "ok git commit",
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "ok git commit",
 		})
 
 		_, ok := marker.Consume(gitRoot, markerName)
@@ -133,9 +142,10 @@ func TestOnUserPromptSubmit(t *testing.T) {
 	})
 
 	t.Run("case insensitive", func(t *testing.T) {
-		p.OnUserPromptSubmit(hook.Input{
-			CWD:    gitRoot,
-			Prompt: "OK GIT MERGE",
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "OK GIT MERGE",
 		})
 
 		_, ok := marker.Consume(gitRoot, markerName)
@@ -143,29 +153,32 @@ func TestOnUserPromptSubmit(t *testing.T) {
 	})
 
 	t.Run("no match does nothing", func(t *testing.T) {
-		result := p.OnUserPromptSubmit(hook.Input{
-			CWD:    gitRoot,
-			Prompt: "please fix the bug",
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "please fix the bug",
 		})
-
-		assert.Nil(t, result)
 
 		_, ok := marker.Consume(gitRoot, markerName)
 		assert.False(t, ok)
 	})
 }
 
-func TestOnSessionEnd(t *testing.T) {
-	p := New()
+func TestHandleSessionEnd(t *testing.T) {
+	h := hook.BuildChain(New())
 	gitRoot := setupGitRepo(t)
 
 	t.Run("cleans up markers", func(t *testing.T) {
-		p.OnUserPromptSubmit(hook.Input{
-			CWD:    gitRoot,
-			Prompt: "ok git commit",
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "ok git commit",
 		})
 
-		p.OnSessionEnd(hook.Input{CWD: gitRoot})
+		h(hook.Input{
+			HookEventName: hook.EventSessionEnd,
+			CWD:           gitRoot,
+		})
 
 		_, ok := marker.Consume(gitRoot, markerName)
 		assert.False(t, ok)

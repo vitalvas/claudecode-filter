@@ -11,10 +11,10 @@ import (
 	"github.com/vitalvas/claudecode-filter/internal/plugins/gitguard"
 )
 
-var filters = []hook.Filter{
+var handler = hook.BuildChain(
 	autoallow.New(),
 	gitguard.New(),
-}
+)
 
 // Execute reads hook input from stdin, processes it, and exits.
 func Execute() {
@@ -50,32 +50,8 @@ func process(input []byte) hook.Result {
 		}
 	}
 
-	switch hookInput.HookEventName {
-	case hook.EventPreToolUse:
-		for _, f := range filters {
-			if result := f.OnPreToolUse(hookInput); result != nil {
-				return *result
-			}
-		}
-
-	case hook.EventPermissionRequest:
-		for _, f := range filters {
-			if result := f.OnPermissionRequest(hookInput); result != nil {
-				return *result
-			}
-		}
-
-	case hook.EventUserPromptSubmit:
-		for _, f := range filters {
-			if result := f.OnUserPromptSubmit(hookInput); result != nil {
-				return *result
-			}
-		}
-
-	case hook.EventSessionEnd:
-		for _, f := range filters {
-			f.OnSessionEnd(hookInput)
-		}
+	if result := handler(hookInput); result != nil {
+		return *result
 	}
 
 	return hook.Result{}

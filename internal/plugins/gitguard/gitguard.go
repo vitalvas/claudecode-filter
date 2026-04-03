@@ -12,15 +12,27 @@ import (
 
 const markerName = "gitguard-allow"
 
-// Plugin implements the git guard filter.
-type Plugin struct{}
+// New creates the gitguard middleware.
+func New() hook.Middleware {
+	return func(next hook.Handler) hook.Handler {
+		return func(input hook.Input) *hook.Result {
+			switch input.HookEventName {
+			case hook.EventPreToolUse:
+				if result := handlePreToolUse(input); result != nil {
+					return result
+				}
+			case hook.EventUserPromptSubmit:
+				handleUserPromptSubmit(input)
+			case hook.EventSessionEnd:
+				handleSessionEnd(input)
+			}
 
-// New creates a new git guard filter plugin.
-func New() hook.Filter {
-	return &Plugin{}
+			return next(input)
+		}
+	}
 }
 
-func (p *Plugin) OnPreToolUse(input hook.Input) *hook.Result {
+func handlePreToolUse(input hook.Input) *hook.Result {
 	if input.ToolName != "Bash" {
 		return nil
 	}
@@ -48,21 +60,15 @@ func (p *Plugin) OnPreToolUse(input hook.Input) *hook.Result {
 
 var okGitRe = regexp.MustCompile(`(?i)\bok\s+git\s+[\w-]+`)
 
-func (p *Plugin) OnUserPromptSubmit(input hook.Input) *hook.Result {
+func handleUserPromptSubmit(input hook.Input) {
 	if !okGitRe.MatchString(input.Prompt) {
-		return nil
+		return
 	}
 
 	marker.Create(input.CWD, markerName, "1")
-
-	return nil
 }
 
-func (p *Plugin) OnPermissionRequest(_ hook.Input) *hook.Result {
-	return nil
-}
-
-func (p *Plugin) OnSessionEnd(input hook.Input) {
+func handleSessionEnd(input hook.Input) {
 	marker.Cleanup(input.CWD)
 }
 

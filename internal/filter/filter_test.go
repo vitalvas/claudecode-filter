@@ -12,18 +12,6 @@ import (
 	"github.com/vitalvas/claudecode-filter/internal/hook"
 )
 
-type mockFilter struct {
-	preToolUseResult  *hook.Result
-	permRequestResult *hook.Result
-	promptResult      *hook.Result
-	sessionEndCalled  bool
-}
-
-func (m *mockFilter) OnPreToolUse(_ hook.Input) *hook.Result        { return m.preToolUseResult }
-func (m *mockFilter) OnPermissionRequest(_ hook.Input) *hook.Result { return m.permRequestResult }
-func (m *mockFilter) OnUserPromptSubmit(_ hook.Input) *hook.Result  { return m.promptResult }
-func (m *mockFilter) OnSessionEnd(_ hook.Input)                     { m.sessionEndCalled = true }
-
 func TestExecute(t *testing.T) {
 	if os.Getenv("TEST_EXECUTE") == "1" {
 		Execute()
@@ -41,19 +29,7 @@ func TestExecute(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("exits 1 on invalid json", func(t *testing.T) {
-		cmd := exec.Command(os.Args[0], "-test.run=TestExecute$")
-		cmd.Env = append(os.Environ(), "TEST_EXECUTE=1")
-		cmd.Stdin = bytes.NewReader([]byte("not json"))
-
-		err := cmd.Run()
-
-		var exitErr *exec.ExitError
-		require.ErrorAs(t, err, &exitErr)
-		assert.Equal(t, 1, exitErr.ExitCode())
-	})
-
-	t.Run("outputs deny on blocked git op", func(t *testing.T) {
+	t.Run("outputs result on stdout", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git commit -m 'test'"})
 		input, _ := json.Marshal(hook.Input{
 			HookEventName: hook.EventPreToolUse,
@@ -73,6 +49,18 @@ func TestExecute(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Contains(t, stdout.String(), "deny")
 	})
+
+	t.Run("exits 1 on invalid json", func(t *testing.T) {
+		cmd := exec.Command(os.Args[0], "-test.run=TestExecute$")
+		cmd.Env = append(os.Environ(), "TEST_EXECUTE=1")
+		cmd.Stdin = bytes.NewReader([]byte("not json"))
+
+		err := cmd.Run()
+
+		var exitErr *exec.ExitError
+		require.ErrorAs(t, err, &exitErr)
+		assert.Equal(t, 1, exitErr.ExitCode())
+	})
 }
 
 func TestProcess(t *testing.T) {
@@ -90,96 +78,65 @@ func TestProcess(t *testing.T) {
 		assert.Equal(t, 0, result.ExitCode)
 		assert.Empty(t, result.Stdout)
 	})
+
+	t.Run("handler result returned", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git commit -m 'test'"})
+		input, _ := json.Marshal(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           t.TempDir(),
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		result := process(input)
+		assert.NotEmpty(t, result.Stdout)
+	})
 }
 
-func TestDispatch(t *testing.T) {
-	t.Run("PreToolUse dispatches to filter", func(t *testing.T) {
-		orig := filters
-		t.Cleanup(func() { filters = orig })
+func TestMiddlewareChain(t *testing.T) {
+	t.Run("first middleware can short-circuit", func(t *testing.T) {
+		first := func(_ hook.Handler) hook.Handler {
+			return func(_ hook.Input) *hook.Result {
+				return &hook.Result{Stdout: "first"}
+			}
+		}
+		second := func(_ hook.Handler) hook.Handler {
+			return func(_ hook.Input) *hook.Result {
+				return &hook.Result{Stdout: "second"}
+			}
+		}
 
-		mock := &mockFilter{preToolUseResult: &hook.Result{Stdout: "blocked"}}
-		filters = []hook.Filter{mock}
-
-		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventPreToolUse})
-		result := process(input)
-		assert.Equal(t, "blocked", result.Stdout)
-	})
-
-	t.Run("PreToolUse passes when filter returns nil", func(t *testing.T) {
-		orig := filters
-		t.Cleanup(func() { filters = orig })
-
-		mock := &mockFilter{}
-		filters = []hook.Filter{mock}
-
-		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventPreToolUse})
-		result := process(input)
-		assert.Empty(t, result.Stdout)
-		assert.Equal(t, 0, result.ExitCode)
-	})
-
-	t.Run("PermissionRequest dispatches to filter", func(t *testing.T) {
-		orig := filters
-		t.Cleanup(func() { filters = orig })
-
-		mock := &mockFilter{permRequestResult: &hook.Result{Stdout: "allowed"}}
-		filters = []hook.Filter{mock}
-
-		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventPermissionRequest})
-		result := process(input)
-		assert.Equal(t, "allowed", result.Stdout)
-	})
-
-	t.Run("UserPromptSubmit dispatches to filter", func(t *testing.T) {
-		orig := filters
-		t.Cleanup(func() { filters = orig })
-
-		mock := &mockFilter{promptResult: &hook.Result{Stdout: "handled"}}
-		filters = []hook.Filter{mock}
-
-		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventUserPromptSubmit})
-		result := process(input)
-		assert.Equal(t, "handled", result.Stdout)
-	})
-
-	t.Run("UserPromptSubmit passes when filter returns nil", func(t *testing.T) {
-		orig := filters
-		t.Cleanup(func() { filters = orig })
-
-		mock := &mockFilter{}
-		filters = []hook.Filter{mock}
-
-		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventUserPromptSubmit})
-		result := process(input)
-		assert.Empty(t, result.Stdout)
-		assert.Equal(t, 0, result.ExitCode)
-	})
-
-	t.Run("SessionEnd calls all filters", func(t *testing.T) {
-		orig := filters
-		t.Cleanup(func() { filters = orig })
-
-		mock1 := &mockFilter{}
-		mock2 := &mockFilter{}
-		filters = []hook.Filter{mock1, mock2}
-
-		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventSessionEnd})
-		result := process(input)
-		assert.Equal(t, 0, result.ExitCode)
-		assert.True(t, mock1.sessionEndCalled)
-		assert.True(t, mock2.sessionEndCalled)
-	})
-
-	t.Run("first deny wins", func(t *testing.T) {
-		orig := filters
-		t.Cleanup(func() { filters = orig })
-
-		mock1 := &mockFilter{preToolUseResult: &hook.Result{Stdout: "first"}}
-		mock2 := &mockFilter{preToolUseResult: &hook.Result{Stdout: "second"}}
-		filters = []hook.Filter{mock1, mock2}
-
-		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventPreToolUse})
-		result := process(input)
+		h := hook.BuildChain(first, second)
+		result := h(hook.Input{})
 		assert.Equal(t, "first", result.Stdout)
+	})
+
+	t.Run("passes to next when nil", func(t *testing.T) {
+		first := func(next hook.Handler) hook.Handler {
+			return func(input hook.Input) *hook.Result {
+				return next(input)
+			}
+		}
+		second := func(_ hook.Handler) hook.Handler {
+			return func(_ hook.Input) *hook.Result {
+				return &hook.Result{Stdout: "second"}
+			}
+		}
+
+		h := hook.BuildChain(first, second)
+		result := h(hook.Input{})
+		assert.Equal(t, "second", result.Stdout)
+	})
+
+	t.Run("returns nil when no middleware handles", func(t *testing.T) {
+		passthrough := func(next hook.Handler) hook.Handler {
+			return func(input hook.Input) *hook.Result {
+				return next(input)
+			}
+		}
+
+		h := hook.BuildChain(passthrough)
+		result := h(hook.Input{})
+		assert.Nil(t, result)
 	})
 }

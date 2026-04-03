@@ -6,34 +6,29 @@ import (
 	"github.com/vitalvas/claudecode-filter/internal/hook"
 )
 
-// Plugin implements the auto-allow filter.
-type Plugin struct{}
+// New creates the autoallow middleware.
+func New() hook.Middleware {
+	return func(next hook.Handler) hook.Handler {
+		return func(input hook.Input) *hook.Result {
+			if input.HookEventName != hook.EventPermissionRequest {
+				return next(input)
+			}
 
-// New creates a new auto-allow filter plugin.
-func New() hook.Filter {
-	return &Plugin{}
-}
+			switch input.ToolName {
+			case "Bash":
+				if result := handleBash(input); result != nil {
+					return result
+				}
+			case "Read":
+				if result := handleRead(input); result != nil {
+					return result
+				}
+			}
 
-func (p *Plugin) OnPreToolUse(_ hook.Input) *hook.Result {
-	return nil
-}
-
-func (p *Plugin) OnPermissionRequest(input hook.Input) *hook.Result {
-	switch input.ToolName {
-	case "Bash":
-		return p.handleBash(input)
-	case "Read":
-		return p.handleRead(input)
-	default:
-		return nil
+			return next(input)
+		}
 	}
 }
-
-func (p *Plugin) OnUserPromptSubmit(_ hook.Input) *hook.Result {
-	return nil
-}
-
-func (p *Plugin) OnSessionEnd(_ hook.Input) {}
 
 func allowPermissionRequest() *hook.Result {
 	output := hook.PermissionRequestOutputWrapper{

@@ -11,7 +11,7 @@ import (
 )
 
 func TestHandleRead(t *testing.T) {
-	p := New()
+	h := hook.BuildChain(New())
 
 	modCache := getGoModCache()
 	if modCache == "" {
@@ -22,9 +22,10 @@ func TestHandleRead(t *testing.T) {
 		toolInput, _ := json.Marshal(readToolInput{
 			FilePath: fmt.Sprintf("%s/github.com/stretchr/testify/assert/assertions.go", modCache),
 		})
-		result := p.OnPermissionRequest(hook.Input{
-			ToolName:  "Read",
-			ToolInput: toolInput,
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Read",
+			ToolInput:     toolInput,
 		})
 
 		require.NotNil(t, result)
@@ -38,9 +39,10 @@ func TestHandleRead(t *testing.T) {
 		toolInput, _ := json.Marshal(readToolInput{
 			FilePath: "/etc/passwd",
 		})
-		result := p.OnPermissionRequest(hook.Input{
-			ToolName:  "Read",
-			ToolInput: toolInput,
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Read",
+			ToolInput:     toolInput,
 		})
 
 		assert.Nil(t, result)

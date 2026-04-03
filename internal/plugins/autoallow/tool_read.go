@@ -32,7 +32,7 @@ type readToolInput struct {
 	FilePath string `json:"file_path"`
 }
 
-func (p *Plugin) handleRead(input hook.Input) *hook.Result {
+func handleRead(input hook.Input) *hook.Result {
 	var readInput readToolInput
 	if err := json.Unmarshal(input.ToolInput, &readInput); err != nil {
 		return nil
