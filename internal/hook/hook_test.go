@@ -40,11 +40,11 @@ func TestBashToolInputUnmarshal(t *testing.T) {
 }
 
 func TestOutputMarshal(t *testing.T) {
-	t.Run("marshals deny output", func(t *testing.T) {
-		output := Output{
+	t.Run("marshals PreToolUse deny output", func(t *testing.T) {
+		output := PreToolUseOutputWrapper{
 			HookSpecificOutput: PreToolUseOutput{
-				HookEventName:            "PreToolUse",
-				PermissionDecision:       "deny",
+				HookEventName:            EventPreToolUse,
+				PermissionDecision:       PermissionDeny,
 				PermissionDecisionReason: "blocked",
 			},
 		}
@@ -53,5 +53,20 @@ func TestOutputMarshal(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, string(data), `"permissionDecision":"deny"`)
 		assert.Contains(t, string(data), `"permissionDecisionReason":"blocked"`)
+	})
+
+	t.Run("marshals PermissionRequest allow output", func(t *testing.T) {
+		output := PermissionRequestOutputWrapper{
+			HookSpecificOutput: PermissionRequestOutput{
+				HookEventName: EventPermissionRequest,
+				Decision: PermissionDecision{
+					Behavior: PermissionAllow,
+				},
+			},
+		}
+
+		data, err := json.Marshal(output)
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"behavior":"allow"`)
 	})
 }

@@ -10,6 +10,13 @@
         "command": "claudecode-filter"
       }]
     }],
+    "PermissionRequest": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "claudecode-filter"
+      }]
+    }],
     "UserPromptSubmit": [{
       "hooks": [{
         "type": "command",

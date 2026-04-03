@@ -35,9 +35,9 @@ func TestOnPreToolUse(t *testing.T) {
 
 		require.NotNil(t, result)
 
-		var output hook.Output
+		var output hook.PreToolUseOutputWrapper
 		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
-		assert.Equal(t, "deny", output.HookSpecificOutput.PermissionDecision)
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
 		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "git commit")
 	})
 
@@ -51,9 +51,9 @@ func TestOnPreToolUse(t *testing.T) {
 
 		require.NotNil(t, result)
 
-		var output hook.Output
+		var output hook.PreToolUseOutputWrapper
 		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
-		assert.Equal(t, "deny", output.HookSpecificOutput.PermissionDecision)
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
 	})
 
 	t.Run("allows git status", func(t *testing.T) {
@@ -96,9 +96,9 @@ func TestOnPreToolUse(t *testing.T) {
 		result = p.OnPreToolUse(input)
 		require.NotNil(t, result)
 
-		var output hook.Output
+		var output hook.PreToolUseOutputWrapper
 		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
-		assert.Equal(t, "deny", output.HookSpecificOutput.PermissionDecision)
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
 	})
 
 	t.Run("any ok git unlocks any operation", func(t *testing.T) {

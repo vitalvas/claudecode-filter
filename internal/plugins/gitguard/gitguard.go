@@ -58,15 +58,19 @@ func (p *Plugin) OnUserPromptSubmit(input hook.Input) *hook.Result {
 	return nil
 }
 
+func (p *Plugin) OnPermissionRequest(_ hook.Input) *hook.Result {
+	return nil
+}
+
 func (p *Plugin) OnSessionEnd(input hook.Input) {
 	marker.Cleanup(input.CWD)
 }
 
 func denyPreToolUse(reason string) *hook.Result {
-	output := hook.Output{
+	output := hook.PreToolUseOutputWrapper{
 		HookSpecificOutput: hook.PreToolUseOutput{
-			HookEventName:            "PreToolUse",
-			PermissionDecision:       "deny",
+			HookEventName:            hook.EventPreToolUse,
+			PermissionDecision:       hook.PermissionDeny,
 			PermissionDecisionReason: reason,
 		},
 	}

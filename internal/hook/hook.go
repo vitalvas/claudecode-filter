@@ -2,9 +2,20 @@ package hook
 
 import "encoding/json"
 
+const (
+	EventPreToolUse        = "PreToolUse"
+	EventPermissionRequest = "PermissionRequest"
+	EventUserPromptSubmit  = "UserPromptSubmit"
+	EventSessionEnd        = "SessionEnd"
+
+	PermissionAllow = "allow"
+	PermissionDeny  = "deny"
+)
+
 // Filter is the interface for pluggable hook filters.
 type Filter interface {
 	OnPreToolUse(input Input) *Result
+	OnPermissionRequest(input Input) *Result
 	OnUserPromptSubmit(input Input) *Result
 	OnSessionEnd(input Input)
 }
@@ -35,9 +46,25 @@ type PreToolUseOutput struct {
 	PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
 }
 
-// Output represents the full hook output.
-type Output struct {
+// PermissionDecision represents the decision for a PermissionRequest.
+type PermissionDecision struct {
+	Behavior string `json:"behavior"`
+}
+
+// PermissionRequestOutput represents the hook-specific output for PermissionRequest.
+type PermissionRequestOutput struct {
+	HookEventName string             `json:"hookEventName"`
+	Decision      PermissionDecision `json:"decision"`
+}
+
+// PreToolUseOutputWrapper represents the full hook output for PreToolUse.
+type PreToolUseOutputWrapper struct {
 	HookSpecificOutput PreToolUseOutput `json:"hookSpecificOutput"`
+}
+
+// PermissionRequestOutputWrapper represents the full hook output for PermissionRequest.
+type PermissionRequestOutputWrapper struct {
+	HookSpecificOutput PermissionRequestOutput `json:"hookSpecificOutput"`
 }
 
 // Result is the outcome of processing a hook event.

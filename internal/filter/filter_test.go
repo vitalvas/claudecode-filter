@@ -13,14 +13,16 @@ import (
 )
 
 type mockFilter struct {
-	preToolUseResult *hook.Result
-	promptResult     *hook.Result
-	sessionEndCalled bool
+	preToolUseResult  *hook.Result
+	permRequestResult *hook.Result
+	promptResult      *hook.Result
+	sessionEndCalled  bool
 }
 
-func (m *mockFilter) OnPreToolUse(_ hook.Input) *hook.Result       { return m.preToolUseResult }
-func (m *mockFilter) OnUserPromptSubmit(_ hook.Input) *hook.Result { return m.promptResult }
-func (m *mockFilter) OnSessionEnd(_ hook.Input)                    { m.sessionEndCalled = true }
+func (m *mockFilter) OnPreToolUse(_ hook.Input) *hook.Result        { return m.preToolUseResult }
+func (m *mockFilter) OnPermissionRequest(_ hook.Input) *hook.Result { return m.permRequestResult }
+func (m *mockFilter) OnUserPromptSubmit(_ hook.Input) *hook.Result  { return m.promptResult }
+func (m *mockFilter) OnSessionEnd(_ hook.Input)                     { m.sessionEndCalled = true }
 
 func TestExecute(t *testing.T) {
 	if os.Getenv("TEST_EXECUTE") == "1" {
@@ -29,7 +31,7 @@ func TestExecute(t *testing.T) {
 	}
 
 	t.Run("exits 0 on valid input", func(t *testing.T) {
-		input, _ := json.Marshal(hook.Input{HookEventName: "Unknown"})
+		input, _ := json.Marshal(hook.Input{HookEventName: "UnknownEvent"})
 
 		cmd := exec.Command(os.Args[0], "-test.run=TestExecute$")
 		cmd.Env = append(os.Environ(), "TEST_EXECUTE=1")
@@ -54,7 +56,7 @@ func TestExecute(t *testing.T) {
 	t.Run("outputs deny on blocked git op", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git commit -m 'test'"})
 		input, _ := json.Marshal(hook.Input{
-			HookEventName: "PreToolUse",
+			HookEventName: hook.EventPreToolUse,
 			CWD:           t.TempDir(),
 			ToolName:      "Bash",
 			ToolInput:     toolInput,
@@ -81,7 +83,7 @@ func TestProcess(t *testing.T) {
 	})
 
 	t.Run("unknown hook event", func(t *testing.T) {
-		input, err := json.Marshal(hook.Input{HookEventName: "Unknown"})
+		input, err := json.Marshal(hook.Input{HookEventName: "UnknownEvent"})
 		require.NoError(t, err)
 
 		result := process(input)
@@ -98,7 +100,7 @@ func TestDispatch(t *testing.T) {
 		mock := &mockFilter{preToolUseResult: &hook.Result{Stdout: "blocked"}}
 		filters = []hook.Filter{mock}
 
-		input, _ := json.Marshal(hook.Input{HookEventName: "PreToolUse"})
+		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventPreToolUse})
 		result := process(input)
 		assert.Equal(t, "blocked", result.Stdout)
 	})
@@ -110,10 +112,22 @@ func TestDispatch(t *testing.T) {
 		mock := &mockFilter{}
 		filters = []hook.Filter{mock}
 
-		input, _ := json.Marshal(hook.Input{HookEventName: "PreToolUse"})
+		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventPreToolUse})
 		result := process(input)
 		assert.Empty(t, result.Stdout)
 		assert.Equal(t, 0, result.ExitCode)
+	})
+
+	t.Run("PermissionRequest dispatches to filter", func(t *testing.T) {
+		orig := filters
+		t.Cleanup(func() { filters = orig })
+
+		mock := &mockFilter{permRequestResult: &hook.Result{Stdout: "allowed"}}
+		filters = []hook.Filter{mock}
+
+		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventPermissionRequest})
+		result := process(input)
+		assert.Equal(t, "allowed", result.Stdout)
 	})
 
 	t.Run("UserPromptSubmit dispatches to filter", func(t *testing.T) {
@@ -123,7 +137,7 @@ func TestDispatch(t *testing.T) {
 		mock := &mockFilter{promptResult: &hook.Result{Stdout: "handled"}}
 		filters = []hook.Filter{mock}
 
-		input, _ := json.Marshal(hook.Input{HookEventName: "UserPromptSubmit"})
+		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventUserPromptSubmit})
 		result := process(input)
 		assert.Equal(t, "handled", result.Stdout)
 	})
@@ -135,7 +149,7 @@ func TestDispatch(t *testing.T) {
 		mock := &mockFilter{}
 		filters = []hook.Filter{mock}
 
-		input, _ := json.Marshal(hook.Input{HookEventName: "UserPromptSubmit"})
+		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventUserPromptSubmit})
 		result := process(input)
 		assert.Empty(t, result.Stdout)
 		assert.Equal(t, 0, result.ExitCode)
@@ -149,7 +163,7 @@ func TestDispatch(t *testing.T) {
 		mock2 := &mockFilter{}
 		filters = []hook.Filter{mock1, mock2}
 
-		input, _ := json.Marshal(hook.Input{HookEventName: "SessionEnd"})
+		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventSessionEnd})
 		result := process(input)
 		assert.Equal(t, 0, result.ExitCode)
 		assert.True(t, mock1.sessionEndCalled)
@@ -164,7 +178,7 @@ func TestDispatch(t *testing.T) {
 		mock2 := &mockFilter{preToolUseResult: &hook.Result{Stdout: "second"}}
 		filters = []hook.Filter{mock1, mock2}
 
-		input, _ := json.Marshal(hook.Input{HookEventName: "PreToolUse"})
+		input, _ := json.Marshal(hook.Input{HookEventName: hook.EventPreToolUse})
 		result := process(input)
 		assert.Equal(t, "first", result.Stdout)
 	})
