@@ -9,6 +9,8 @@ import (
 )
 
 var allowedBashPrefixes = []string{
+	"gh api",
+	"gh repo",
 	"git add",
 	"git branch",
 	"git checkout",

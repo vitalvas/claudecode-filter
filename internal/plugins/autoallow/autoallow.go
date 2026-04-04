@@ -23,6 +23,8 @@ func New() hook.Middleware {
 				if result := handleRead(input); result != nil {
 					return result
 				}
+			case "WebSearch":
+				return allowPermissionRequest()
 			}
 
 			return next(input)
