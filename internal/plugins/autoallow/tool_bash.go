@@ -10,6 +10,7 @@ import (
 
 var allowedBashPrefixes = []string{
 	"gh api",
+	"gh label",
 	"gh repo",
 	"git add",
 	"git branch",
