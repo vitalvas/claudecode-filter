@@ -49,6 +49,11 @@ type BashToolInput struct {
 	Command string `json:"command"`
 }
 
+// ReadToolInput represents the input for Read tool calls.
+type ReadToolInput struct {
+	FilePath string `json:"file_path"`
+}
+
 // PreToolUseOutput represents the hook-specific output for PreToolUse.
 type PreToolUseOutput struct {
 	HookEventName            string `json:"hookEventName"`

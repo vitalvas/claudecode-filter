@@ -9,9 +9,11 @@ import (
 	"github.com/vitalvas/claudecode-filter/internal/hook"
 	"github.com/vitalvas/claudecode-filter/internal/plugins/autoallow"
 	"github.com/vitalvas/claudecode-filter/internal/plugins/gitguard"
+	"github.com/vitalvas/claudecode-filter/internal/plugins/readguard"
 )
 
 var handler = hook.BuildChain(
+	readguard.New(),
 	autoallow.New(),
 	gitguard.New(),
 )
