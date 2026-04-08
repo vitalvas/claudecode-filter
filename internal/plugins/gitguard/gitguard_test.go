@@ -107,6 +107,94 @@ func TestHandlePreToolUse(t *testing.T) {
 		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
 	})
 
+	t.Run("blocks commit with Co-Authored-By", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{
+			Command: "git commit -m \"$(cat <<'EOF'\nfeat: add feature\n\nCo-Authored-By: user <user@example.com>\nEOF\n)\"",
+		})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "co-authored-by:")
+	})
+
+	t.Run("blocks commit with Co-Authored-By even with marker", func(t *testing.T) {
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "ok git commit",
+		})
+
+		toolInput, _ := json.Marshal(hook.BashToolInput{
+			Command: "git commit -m 'feat: thing\n\nCo-Authored-By: user <user@example.com>'",
+		})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "co-authored-by:")
+	})
+
+	t.Run("blocks commit with AI-assistant", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{
+			Command: "git commit -m 'feat: add feature\n\nAI-assistant: Claude'",
+		})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "ai-assistant:")
+	})
+
+	t.Run("blocks commit with AI-assistant even with marker", func(t *testing.T) {
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "ok git commit",
+		})
+
+		toolInput, _ := json.Marshal(hook.BashToolInput{
+			Command: "git commit -m 'fix: bug\n\nAI-Assistant: copilot'",
+		})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "ai-assistant:")
+	})
+
 	t.Run("any ok git unlocks any operation", func(t *testing.T) {
 		h(hook.Input{
 			HookEventName: hook.EventUserPromptSubmit,

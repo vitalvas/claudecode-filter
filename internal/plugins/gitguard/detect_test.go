@@ -6,6 +6,73 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestContainsBlockedCommitHeader(t *testing.T) {
+	tests := []struct {
+		name       string
+		command    string
+		wantHeader string
+		wantFound  bool
+	}{
+		{
+			name:       "commit with Co-Authored-By",
+			command:    "git commit -m \"$(cat <<'EOF'\nfeat: add feature\n\nCo-Authored-By: user <user@example.com>\nEOF\n)\"",
+			wantHeader: "co-authored-by:",
+			wantFound:  true,
+		},
+		{
+			name:       "commit with lowercase co-authored-by",
+			command:    "git commit -m 'fix: something\n\nco-authored-by: user <user@example.com>'",
+			wantHeader: "co-authored-by:",
+			wantFound:  true,
+		},
+		{
+			name:       "commit with mixed case CO-AUTHORED-BY",
+			command:    "git commit -m 'feat: thing\n\nCO-AUTHORED-BY: user <user@example.com>'",
+			wantHeader: "co-authored-by:",
+			wantFound:  true,
+		},
+		{
+			name:       "commit with AI-assistant",
+			command:    "git commit -m 'feat: add feature\n\nAI-assistant: Claude'",
+			wantHeader: "ai-assistant:",
+			wantFound:  true,
+		},
+		{
+			name:       "commit with lowercase ai-assistant",
+			command:    "git commit -m 'fix: something\n\nai-assistant: copilot'",
+			wantHeader: "ai-assistant:",
+			wantFound:  true,
+		},
+		{
+			name:       "commit with mixed case AI-ASSISTANT",
+			command:    "git commit -m 'feat: thing\n\nAI-ASSISTANT: Claude'",
+			wantHeader: "ai-assistant:",
+			wantFound:  true,
+		},
+		{
+			name:      "commit without blocked headers",
+			command:   "git commit -m 'feat: add new feature'",
+			wantFound: false,
+		},
+		{
+			name:      "empty command",
+			command:   "",
+			wantFound: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			header, found := containsBlockedCommitHeader(tt.command)
+			assert.Equal(t, tt.wantFound, found)
+
+			if tt.wantFound {
+				assert.Equal(t, tt.wantHeader, header)
+			}
+		})
+	}
+}
+
 func TestDetectBlockedOps(t *testing.T) {
 	tests := []struct {
 		name    string

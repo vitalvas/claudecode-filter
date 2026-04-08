@@ -33,6 +33,23 @@ func detectBlockedOps(command string) []string {
 	return found
 }
 
+var blockedCommitHeaders = []string{
+	"co-authored-by:",
+	"ai-assistant:",
+}
+
+func containsBlockedCommitHeader(command string) (string, bool) {
+	lower := strings.ToLower(command)
+
+	for _, header := range blockedCommitHeaders {
+		if strings.Contains(lower, header) {
+			return header, true
+		}
+	}
+
+	return "", false
+}
+
 func detectGitOp(segment string) (string, bool) {
 	words := strings.Fields(strings.TrimSpace(segment))
 

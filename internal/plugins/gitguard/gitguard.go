@@ -47,6 +47,10 @@ func handlePreToolUse(input hook.Input) *hook.Result {
 		return nil
 	}
 
+	if header, ok := containsBlockedCommitHeader(bashInput.Command); ok {
+		return denyPreToolUse(fmt.Sprintf("commit messages must not contain '%s' headers", header))
+	}
+
 	if _, ok := marker.Consume(input.CWD, markerName); ok {
 		return nil
 	}
