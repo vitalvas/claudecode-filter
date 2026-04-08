@@ -37,6 +37,7 @@ var allowedBashPrefixes = []string{
 	"git switch",
 	"git tag",
 	"go build",
+	"gofmt",
 	"go clean",
 	"go doc",
 	"go env",
