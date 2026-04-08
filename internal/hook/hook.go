@@ -54,6 +54,11 @@ type ReadToolInput struct {
 	FilePath string `json:"file_path"`
 }
 
+// WebFetchToolInput represents the input for WebFetch tool calls.
+type WebFetchToolInput struct {
+	URL string `json:"url"`
+}
+
 // PreToolUseOutput represents the hook-specific output for PreToolUse.
 type PreToolUseOutput struct {
 	HookEventName            string `json:"hookEventName"`
