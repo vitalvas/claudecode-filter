@@ -9,10 +9,12 @@ import (
 )
 
 var allowedBashPrefixes = []string{
+	"fzf",
 	"gh api",
 	"gh issue list",
 	"gh label",
 	"gh repo",
+	"gh run view",
 	"git add",
 	"git branch",
 	"git checkout",
@@ -37,7 +39,6 @@ var allowedBashPrefixes = []string{
 	"git switch",
 	"git tag",
 	"go build",
-	"gofmt",
 	"go clean",
 	"go doc",
 	"go env",
@@ -48,15 +49,13 @@ var allowedBashPrefixes = []string{
 	"go run",
 	"go test",
 	"go vet",
+	"gofmt",
 	"golangci-lint run",
 	"grep",
 	"ls",
 	"markdownlint",
 	"rg",
-	"yake code",
-	"yake policy run",
-	"yake run",
-	"yake tests",
+	"yake",
 }
 
 func handleBash(input hook.Input) *hook.Result {
