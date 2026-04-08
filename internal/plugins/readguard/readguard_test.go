@@ -2,6 +2,8 @@ package readguard
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,6 +13,7 @@ import (
 
 func TestReadguard(t *testing.T) {
 	h := hook.BuildChain(New())
+	homeDir := os.Getenv("HOME")
 
 	tests := []struct {
 		name    string
@@ -50,6 +53,95 @@ func TestReadguard(t *testing.T) {
 		{
 			name:    "passes non-Read tool",
 			input:   makeInput("Bash", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/home/user/secret.key"}),
+			blocked: false,
+		},
+		// SSH directory
+		{
+			name:    "blocks file under $HOME/.ssh",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".ssh", "config")}),
+			blocked: true,
+		},
+		{
+			name:    "blocks nested file under $HOME/.ssh",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".ssh", "keys", "deploy")}),
+			blocked: true,
+		},
+		{
+			name:    "passes .ssh outside HOME",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/tmp/.ssh/config"}),
+			blocked: false,
+		},
+		// .env files
+		{
+			name:    "blocks .env",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/project/.env"}),
+			blocked: true,
+		},
+		{
+			name:    "blocks .env.local",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/project/.env.local"}),
+			blocked: true,
+		},
+		{
+			name:    "blocks .env.production",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/project/.env.production"}),
+			blocked: true,
+		},
+		{
+			name:    "passes env.example",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/project/env.example"}),
+			blocked: false,
+		},
+		// Private key files
+		{
+			name:    "blocks id_rsa",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/some/path/id_rsa"}),
+			blocked: true,
+		},
+		{
+			name:    "blocks id_rsa_custom",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/some/path/id_rsa_custom"}),
+			blocked: true,
+		},
+		{
+			name:    "blocks id_ecdsa",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/some/path/id_ecdsa"}),
+			blocked: true,
+		},
+		{
+			name:    "blocks id_ecdsa_sk",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/some/path/id_ecdsa_sk"}),
+			blocked: true,
+		},
+		{
+			name:    "blocks id_ed25519",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/some/path/id_ed25519"}),
+			blocked: true,
+		},
+		{
+			name:    "blocks id_ed25519_custom",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/some/path/id_ed25519_custom"}),
+			blocked: true,
+		},
+		// Public key exceptions
+		{
+			name:    "allows id_rsa.pub",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/some/path/id_rsa.pub"}),
+			blocked: false,
+		},
+		{
+			name:    "allows id_ecdsa.pub",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/some/path/id_ecdsa.pub"}),
+			blocked: false,
+		},
+		{
+			name:    "allows id_ed25519.pub",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/some/path/id_ed25519.pub"}),
+			blocked: false,
+		},
+		{
+			name:    "allows id_rsa.pub under $HOME/.ssh",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".ssh", "id_rsa.pub")}),
 			blocked: false,
 		},
 	}
