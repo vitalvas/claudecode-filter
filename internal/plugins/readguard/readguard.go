@@ -29,15 +29,20 @@ var allowedPatterns = []string{
 	"*.pub",
 }
 
+type blockedDir struct {
+	path         string
+	allowProject bool
+}
+
 // New creates the readguard middleware.
 func New() hook.Middleware {
-	sshDir := filepath.Join(os.Getenv("HOME"), ".ssh")
+	blockedDirs := blockedDirectories()
 
 	return func(next hook.Handler) hook.Handler {
 		return func(input hook.Input) *hook.Result {
 			if input.ToolName == "Read" {
 				if input.HookEventName == hook.EventPreToolUse || input.HookEventName == hook.EventPermissionRequest {
-					if result := handleRead(input, sshDir); result != nil {
+					if result := handleRead(input, blockedDirs); result != nil {
 						return result
 					}
 				}
@@ -48,7 +53,29 @@ func New() hook.Middleware {
 	}
 }
 
-func handleRead(input hook.Input, sshDir string) *hook.Result {
+func blockedDirectories() []blockedDir {
+	home := os.Getenv("HOME")
+
+	dirs := []blockedDir{
+		{path: filepath.Join(home, ".ssh")},
+	}
+
+	defaultGoPath := filepath.Join(home, "go")
+	if goPath := os.Getenv("GOPATH"); goPath != "" && goPath != defaultGoPath {
+		dirs = append(dirs, blockedDir{path: defaultGoPath})
+	}
+
+	if goPath := os.Getenv("GOPATH"); goPath != "" {
+		dirs = append(dirs, blockedDir{
+			path:         filepath.Join(goPath, "src"),
+			allowProject: true,
+		})
+	}
+
+	return dirs
+}
+
+func handleRead(input hook.Input, blockedDirs []blockedDir) *hook.Result {
 	var readInput hook.ReadToolInput
 	if err := json.Unmarshal(input.ToolInput, &readInput); err != nil {
 		return nil
@@ -61,8 +88,16 @@ func handleRead(input hook.Input, sshDir string) *hook.Result {
 		return nil
 	}
 
-	if sshDir != "" && isUnderDir(filePath, sshDir) {
-		return denyPreToolUse(fmt.Sprintf("reading files under %s is not allowed", sshDir))
+	for _, dir := range blockedDirs {
+		if !isUnderDir(filePath, dir.path) {
+			continue
+		}
+
+		if dir.allowProject && input.CWD != "" && isUnderDir(filePath, input.CWD) {
+			continue
+		}
+
+		return denyPreToolUse(fmt.Sprintf("reading files under %s is not allowed", dir.path))
 	}
 
 	for _, r := range blockedPatterns {
