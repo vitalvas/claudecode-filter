@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-var config = map[string]any{
+var requiredSettings = map[string]any{
 	"alwaysThinkingEnabled":             false,
 	"includeCoAuthoredBy":               false,
 	"skipDangerousModePermissionPrompt": true,
@@ -57,7 +57,7 @@ var config = map[string]any{
 	},
 }
 
-// Execute writes ~/.claude/settings.local.json with required hooks config.
+// Execute updates ~/.claude/settings.json with required settings, preserving existing config.
 func Execute() error {
 	home := os.Getenv("HOME")
 	if home == "" {
@@ -69,9 +69,18 @@ func Execute() error {
 		return fmt.Errorf("failed to create %s: %w", claudeDir, err)
 	}
 
-	settingsPath := filepath.Join(claudeDir, "settings.local.json")
+	settingsPath := filepath.Join(claudeDir, "settings.json")
 
-	data, err := json.MarshalIndent(config, "", "  ")
+	existing, err := readConfig(settingsPath)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range requiredSettings {
+		existing[k] = v
+	}
+
+	data, err := json.MarshalIndent(existing, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
@@ -85,4 +94,22 @@ func Execute() error {
 	fmt.Printf("Updated %s\n", settingsPath)
 
 	return nil
+}
+
+func readConfig(path string) (map[string]any, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return make(map[string]any), nil
+		}
+
+		return nil, fmt.Errorf("failed to read %s: %w", path, err)
+	}
+
+	var config map[string]any
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("%s has invalid JSON: %w", path, err)
+	}
+
+	return config, nil
 }
