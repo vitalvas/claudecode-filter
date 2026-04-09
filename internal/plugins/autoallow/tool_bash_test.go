@@ -102,6 +102,46 @@ func TestHandleBash(t *testing.T) {
 		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
 	})
 
+	t.Run("allows mkdir in project", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "mkdir -p internal/newpkg"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			CWD:           "/project",
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PermissionRequestOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
+	})
+
+	t.Run("blocks mkdir outside project", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "mkdir /tmp/evil"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			CWD:           "/project",
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		assert.Nil(t, result)
+	})
+
+	t.Run("blocks mkdir with parent traversal", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "mkdir ../outside"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			CWD:           "/project",
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		assert.Nil(t, result)
+	})
+
 	t.Run("does not allow unknown command", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "rm -rf /"})
 		result := h(hook.Input{

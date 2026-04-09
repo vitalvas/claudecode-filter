@@ -3,10 +3,15 @@ package autoallow
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/vitalvas/claudecode-filter/internal/hook"
 )
+
+var projectScopedPrefixes = []string{
+	"mkdir",
+}
 
 var allowedBashPrefixes = []string{
 	"curl",
@@ -15,6 +20,8 @@ var allowedBashPrefixes = []string{
 	"gh issue list",
 	"gh issue view",
 	"gh label",
+	"gh pr diff",
+	"gh pr view",
 	"gh repo",
 	"gh run view",
 	"git add",
@@ -77,5 +84,43 @@ func handleBash(input hook.Input) *hook.Result {
 		}
 	}
 
+	if input.CWD != "" && isProjectScopedCommand(bashInput.Command, input.CWD) {
+		return allowPermissionRequest()
+	}
+
 	return nil
+}
+
+func isProjectScopedCommand(command, cwd string) bool {
+	for _, prefix := range projectScopedPrefixes {
+		if command == prefix || strings.HasPrefix(command, fmt.Sprintf("%s ", prefix)) {
+			return allPathArgsInProject(command, cwd)
+		}
+	}
+
+	return false
+}
+
+func allPathArgsInProject(command, cwd string) bool {
+	args := strings.Fields(command)
+
+	for _, arg := range args[1:] {
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+
+		path := arg
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(cwd, path)
+		}
+
+		path = filepath.Clean(path)
+
+		rel, err := filepath.Rel(cwd, path)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			return false
+		}
+	}
+
+	return true
 }
