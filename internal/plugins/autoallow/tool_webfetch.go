@@ -8,8 +8,13 @@ import (
 )
 
 var allowedWebFetchDomains = []string{
+	"blog.vitalvas.com",
+	"en.wikipedia.org",
 	"github.com",
+	"localhost",
 	"raw.githubusercontent.com",
+	"www.iana.org",
+	"www.rfc-editor.org",
 }
 
 func handleWebFetch(input hook.Input) *hook.Result {

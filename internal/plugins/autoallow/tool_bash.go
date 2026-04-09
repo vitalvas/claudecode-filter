@@ -9,9 +9,11 @@ import (
 )
 
 var allowedBashPrefixes = []string{
+	"curl",
 	"fzf",
 	"gh api",
 	"gh issue list",
+	"gh issue view",
 	"gh label",
 	"gh repo",
 	"gh run view",
@@ -51,11 +53,15 @@ var allowedBashPrefixes = []string{
 	"go tool",
 	"go vet",
 	"gofmt",
+	"goimports",
 	"golangci-lint run",
 	"grep",
+	"hugo",
 	"ls",
+	"lsof",
 	"markdownlint",
 	"rg",
+	"tree",
 	"yake",
 }
 
