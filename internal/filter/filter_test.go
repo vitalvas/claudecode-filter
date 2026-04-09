@@ -63,6 +63,104 @@ func TestExecute(t *testing.T) {
 	})
 }
 
+func TestExecuteCommand(t *testing.T) {
+	t.Run("setup succeeds", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+
+		err := executeCommand("setup")
+		assert.NoError(t, err)
+	})
+
+	t.Run("unknown command fails", func(t *testing.T) {
+		err := executeCommand("unknown")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown command")
+	})
+}
+
+func TestWriteResult(t *testing.T) {
+	t.Run("writes stdout", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		writeResult(&stdout, &stderr, hook.Result{Stdout: "output"})
+
+		assert.Equal(t, "output", stdout.String())
+		assert.Empty(t, stderr.String())
+	})
+
+	t.Run("writes stderr", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		writeResult(&stdout, &stderr, hook.Result{Stderr: "error"})
+
+		assert.Empty(t, stdout.String())
+		assert.Equal(t, "error", stderr.String())
+	})
+
+	t.Run("writes both", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		writeResult(&stdout, &stderr, hook.Result{Stdout: "out", Stderr: "err"})
+
+		assert.Equal(t, "out", stdout.String())
+		assert.Equal(t, "err", stderr.String())
+	})
+
+	t.Run("empty result writes nothing", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		writeResult(&stdout, &stderr, hook.Result{})
+
+		assert.Empty(t, stdout.String())
+		assert.Empty(t, stderr.String())
+	})
+}
+
+func TestSubcommand(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "setup", args: []string{"bin", "setup"}, want: "setup"},
+		{name: "no args", args: []string{"bin"}, want: ""},
+		{name: "empty", args: []string{}, want: ""},
+		{name: "unknown ignored", args: []string{"bin", "unknown"}, want: ""},
+		{name: "test flag ignored", args: []string{"bin", "-test.run=Foo"}, want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, subcommand(tt.args))
+		})
+	}
+}
+
+func TestRun(t *testing.T) {
+	t.Run("valid input", func(t *testing.T) {
+		input, _ := json.Marshal(hook.Input{HookEventName: "UnknownEvent"})
+		result := run(bytes.NewReader(input))
+
+		assert.Equal(t, 0, result.ExitCode)
+	})
+
+	t.Run("invalid json", func(t *testing.T) {
+		result := run(bytes.NewReader([]byte("not json")))
+
+		assert.Equal(t, 1, result.ExitCode)
+		assert.Contains(t, result.Stderr, "failed to parse")
+	})
+
+	t.Run("handler result", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git commit -m 'test'"})
+		input, _ := json.Marshal(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           t.TempDir(),
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		result := run(bytes.NewReader(input))
+		assert.NotEmpty(t, result.Stdout)
+	})
+}
+
 func TestProcess(t *testing.T) {
 	t.Run("invalid json", func(t *testing.T) {
 		result := process([]byte("not json"))
