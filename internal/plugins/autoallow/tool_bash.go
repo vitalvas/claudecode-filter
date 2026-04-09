@@ -48,6 +48,7 @@ var allowedBashPrefixes = []string{
 	"go mod",
 	"go run",
 	"go test",
+	"go tool",
 	"go vet",
 	"gofmt",
 	"golangci-lint run",
