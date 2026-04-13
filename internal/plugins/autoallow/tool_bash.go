@@ -19,6 +19,10 @@ var projectScopedPrefixes = []string{
 }
 
 var allowedBashPrefixes = []string{
+	"cargo check",
+	"cargo clippy",
+	"cargo doc",
+	"cargo tree",
 	"cat",
 	"curl",
 	"date",

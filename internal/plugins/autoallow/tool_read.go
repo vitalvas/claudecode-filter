@@ -3,7 +3,9 @@ package autoallow
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -11,21 +13,26 @@ import (
 )
 
 var (
-	goModCache     string
-	goModCacheOnce sync.Once
+	allowedReadDirs     []string
+	allowedReadDirsOnce sync.Once
 )
 
-func getGoModCache() string {
-	goModCacheOnce.Do(func() {
-		out, err := exec.Command("go", "env", "GOMODCACHE").Output()
-		if err != nil {
-			return
+func getAllowedReadDirs() []string {
+	allowedReadDirsOnce.Do(func() {
+		home := os.Getenv("HOME")
+		if home != "" {
+			allowedReadDirs = append(allowedReadDirs, filepath.Join(home, ".cargo", "registry", "src"))
 		}
 
-		goModCache = strings.TrimSpace(string(out))
+		out, err := exec.Command("go", "env", "GOMODCACHE").Output()
+		if err == nil {
+			if dir := strings.TrimSpace(string(out)); dir != "" {
+				allowedReadDirs = append(allowedReadDirs, dir)
+			}
+		}
 	})
 
-	return goModCache
+	return allowedReadDirs
 }
 
 type readToolInput struct {
@@ -38,13 +45,10 @@ func handleRead(input hook.Input) *hook.Result {
 		return nil
 	}
 
-	modCache := getGoModCache()
-	if modCache == "" {
-		return nil
-	}
-
-	if strings.HasPrefix(readInput.FilePath, fmt.Sprintf("%s/", modCache)) {
-		return allowPermissionRequest()
+	for _, dir := range getAllowedReadDirs() {
+		if strings.HasPrefix(readInput.FilePath, fmt.Sprintf("%s/", dir)) {
+			return allowPermissionRequest()
+		}
 	}
 
 	return nil

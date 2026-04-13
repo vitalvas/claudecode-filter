@@ -8,7 +8,9 @@ import (
 )
 
 var allowedWebFetchDomains = []string{
+	"aws.amazon.com",
 	"blog.vitalvas.com",
+	"docs.rs",
 	"en.wikipedia.org",
 	"github.com",
 	"localhost",
