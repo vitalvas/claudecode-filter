@@ -142,6 +142,53 @@ func TestHandleBash(t *testing.T) {
 		assert.Nil(t, result)
 	})
 
+	t.Run("denies ssh on PermissionRequest", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "ssh user@host"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "ssh")
+	})
+
+	t.Run("denies ssh on PreToolUse", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "ssh user@host"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+	})
+
+	t.Run("denies telnet", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "telnet host 80"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "telnet")
+	})
+
 	t.Run("does not allow unknown command", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "rm -rf /"})
 		result := h(hook.Input{

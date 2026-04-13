@@ -9,12 +9,26 @@ import (
 	"github.com/vitalvas/claudecode-filter/internal/hook"
 )
 
+var deniedBashPrefixes = []string{
+	"ssh",
+	"telnet",
+}
+
 var projectScopedPrefixes = []string{
 	"mkdir",
 }
 
 var allowedBashPrefixes = []string{
+	"cat",
 	"curl",
+	"date",
+	"df",
+	"diff",
+	"dig",
+	"du",
+	"env",
+	"file",
+	"find",
 	"fzf",
 	"gh api",
 	"gh issue list",
@@ -63,13 +77,45 @@ var allowedBashPrefixes = []string{
 	"goimports",
 	"golangci-lint run",
 	"grep",
+	"head",
+	"hostname",
 	"hugo",
+	"id",
+	"jq",
 	"ls",
 	"lsof",
 	"markdownlint",
+	"nslookup",
+	"ping",
+	"ps",
+	"pwd",
 	"rg",
+	"scp",
+	"sort",
+	"stat",
+	"tail",
 	"tree",
+	"uname",
+	"uniq",
+	"wc",
+	"which",
+	"whoami",
 	"yake",
+}
+
+func handleBashDeny(input hook.Input) *hook.Result {
+	var bashInput hook.BashToolInput
+	if err := json.Unmarshal(input.ToolInput, &bashInput); err != nil {
+		return nil
+	}
+
+	for _, prefix := range deniedBashPrefixes {
+		if bashInput.Command == prefix || strings.HasPrefix(bashInput.Command, fmt.Sprintf("%s ", prefix)) {
+			return denyPreToolUse(fmt.Sprintf("command '%s' is not allowed", prefix))
+		}
+	}
+
+	return nil
 }
 
 func handleBash(input hook.Input) *hook.Result {
