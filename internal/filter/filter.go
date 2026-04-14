@@ -11,11 +11,13 @@ import (
 	"github.com/vitalvas/claudecode-filter/internal/plugins/configcheck"
 	"github.com/vitalvas/claudecode-filter/internal/plugins/gitguard"
 	"github.com/vitalvas/claudecode-filter/internal/plugins/readguard"
+	"github.com/vitalvas/claudecode-filter/internal/plugins/writeguard"
 	"github.com/vitalvas/claudecode-filter/internal/setup"
 )
 
 var handler = hook.BuildChain(
 	configcheck.New(),
+	writeguard.New(),
 	readguard.New(),
 	autoallow.New(),
 	gitguard.New(),

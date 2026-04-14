@@ -28,6 +28,18 @@ func Create(cwd, name, value string) error {
 	return os.WriteFile(filepath.Join(dir, prefix+name), []byte(value), 0o644)
 }
 
+// Exists checks whether a marker file exists.
+func Exists(cwd, name string) bool {
+	root, err := findGitRoot(cwd)
+	if err != nil {
+		return false
+	}
+
+	_, err = os.Stat(filepath.Join(root, tmpDir, prefix+name))
+
+	return err == nil
+}
+
 // Consume removes a marker file and returns its value and whether it existed.
 func Consume(cwd, name string) (string, bool) {
 	root, err := findGitRoot(cwd)
