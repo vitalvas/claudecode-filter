@@ -99,6 +99,10 @@ func handleRead(input hook.Input, blockedDirs []blockedDir) *hook.Result {
 			continue
 		}
 
+		if dir.allowProject {
+			return askPreToolUse(fmt.Sprintf("reading files under %s outside project requires approval", dir.path))
+		}
+
 		return denyPreToolUse(fmt.Sprintf("reading files under %s is not allowed", dir.path))
 	}
 

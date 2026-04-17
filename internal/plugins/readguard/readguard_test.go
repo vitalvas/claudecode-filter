@@ -234,7 +234,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		assert.Nil(t, result)
 	})
 
-	t.Run("blocks $GOPATH/src outside project", func(t *testing.T) {
+	t.Run("asks $GOPATH/src outside project", func(t *testing.T) {
 		dirs := []blockedDir{{path: "/gopath/src", allowProject: true}}
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
 			FilePath: "/gopath/src/github.com/other/repo/main.go",
@@ -245,7 +245,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 
 		var output hook.PreToolUseOutputWrapper
 		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
-		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Equal(t, hook.PermissionAsk, output.HookSpecificOutput.PermissionDecision)
 	})
 
 	t.Run("allows $GOPATH/src inside project", func(t *testing.T) {
