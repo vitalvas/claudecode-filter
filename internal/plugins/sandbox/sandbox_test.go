@@ -198,6 +198,8 @@ func TestExtractBashPath(t *testing.T) {
 		{name: "flag then path", command: "ls -la /var/log", want: "/var/log"},
 		{name: "relative path", command: "cat file.go", want: ""},
 		{name: "no path", command: "go test ./...", want: ""},
+		{name: "heredoc with absolute path in body", command: "git commit --file=- <<'EOF'\nfeat: add /etc/config support\nEOF", want: ""},
+		{name: "heredoc with EOF marker", command: "git commit -m \"$(cat <<'EOF'\nsome message\nEOF\n)\"", want: ""},
 		{name: "empty", command: "", want: ""},
 	}
 

@@ -94,8 +94,11 @@ func extractPath(input hook.Input) string {
 	return ""
 }
 
+var heredocPattern = regexp.MustCompile(`<<-?\s*'?(\w+)'?[\s\S]*`)
+
 func extractBashPath(command string) string {
-	args := strings.Fields(command)
+	cmd := heredocPattern.ReplaceAllString(command, "")
+	args := strings.Fields(cmd)
 
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "-") {
