@@ -9,6 +9,7 @@ const (
 	EventSessionEnd        = "SessionEnd"
 
 	PermissionAllow = "allow"
+	PermissionAsk   = "ask"
 	PermissionDeny  = "deny"
 )
 

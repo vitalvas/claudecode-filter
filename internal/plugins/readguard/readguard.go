@@ -118,6 +118,10 @@ func handleRead(input hook.Input, blockedDirs []blockedDir) *hook.Result {
 		}
 	}
 
+	if input.CWD != "" && !isUnderDir(filePath, input.CWD) {
+		return askPreToolUse("reading files outside the project directory requires approval")
+	}
+
 	return nil
 }
 
@@ -143,6 +147,25 @@ func isUnderDir(filePath, dir string) bool {
 	}
 
 	return len(rel) > 0 && rel[0] != '.'
+}
+
+func askPreToolUse(reason string) *hook.Result {
+	output := hook.PreToolUseOutputWrapper{
+		HookSpecificOutput: hook.PreToolUseOutput{
+			HookEventName:            hook.EventPreToolUse,
+			PermissionDecision:       hook.PermissionAsk,
+			PermissionDecisionReason: reason,
+		},
+	}
+
+	data, err := json.Marshal(output)
+	if err != nil {
+		return nil
+	}
+
+	return &hook.Result{
+		Stdout: string(data),
+	}
 }
 
 func denyPreToolUse(reason string) *hook.Result {

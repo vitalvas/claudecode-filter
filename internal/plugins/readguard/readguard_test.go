@@ -224,9 +224,11 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "/blocked/dir")
 	})
 
-	t.Run("passes file outside blocked dir", func(t *testing.T) {
+	t.Run("passes file in project dir", func(t *testing.T) {
 		dirs := []blockedDir{{path: "/blocked/dir"}}
-		input := makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/other/dir/file.go"})
+		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
+			FilePath: "/project/src/file.go",
+		}, "/project")
 		result := handleRead(input, dirs)
 
 		assert.Nil(t, result)
@@ -251,6 +253,30 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
 			FilePath: "/gopath/src/github.com/myorg/myproject/internal/pkg/file.go",
 		}, "/gopath/src/github.com/myorg/myproject")
+		result := handleRead(input, dirs)
+
+		assert.Nil(t, result)
+	})
+
+	t.Run("asks for read outside project", func(t *testing.T) {
+		var dirs []blockedDir
+		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
+			FilePath: "/other/project/file.go",
+		}, "/my/project")
+		result := handleRead(input, dirs)
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAsk, output.HookSpecificOutput.PermissionDecision)
+	})
+
+	t.Run("allows read inside project", func(t *testing.T) {
+		var dirs []blockedDir
+		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
+			FilePath: "/my/project/src/main.go",
+		}, "/my/project")
 		result := handleRead(input, dirs)
 
 		assert.Nil(t, result)
