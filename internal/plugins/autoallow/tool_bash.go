@@ -87,6 +87,7 @@ var allowedBashPrefixes = []string{
 	"lsof",
 	"markdownlint",
 	"rustc",
+	"rustup",
 	"nslookup",
 	"ping",
 	"ps",
