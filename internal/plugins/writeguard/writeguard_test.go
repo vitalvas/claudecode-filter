@@ -145,6 +145,90 @@ func TestWriteguard(t *testing.T) {
 		assert.Nil(t, result)
 	})
 
+	t.Run("blocks Write to marker file without readonly marker", func(t *testing.T) {
+		gitRoot := setupGitRepo(t)
+
+		toolInput, _ := json.Marshal(map[string]string{"file_path": filepath.Join(gitRoot, ".tmp", "claudecode-filter-readonly")})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Write",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "marker")
+	})
+
+	t.Run("blocks Edit to marker file", func(t *testing.T) {
+		gitRoot := setupGitRepo(t)
+
+		toolInput, _ := json.Marshal(map[string]string{"file_path": filepath.Join(gitRoot, ".tmp", "claudecode-filter-gitguard-allow")})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Edit",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+	})
+
+	t.Run("blocks Bash rm of marker file", func(t *testing.T) {
+		gitRoot := setupGitRepo(t)
+
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "rm .tmp/claudecode-filter-readonly"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "marker")
+	})
+
+	t.Run("allows Bash command without marker reference", func(t *testing.T) {
+		gitRoot := setupGitRepo(t)
+
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "ls -la"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		assert.Nil(t, result)
+	})
+
+	t.Run("allows Write to non-marker file", func(t *testing.T) {
+		gitRoot := setupGitRepo(t)
+
+		toolInput, _ := json.Marshal(map[string]string{"file_path": filepath.Join(gitRoot, "src", "main.go"), "content": "test"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Write",
+			ToolInput:     toolInput,
+		})
+
+		assert.Nil(t, result)
+	})
+
 	t.Run("blocks on PermissionRequest too", func(t *testing.T) {
 		gitRoot := setupGitRepo(t)
 		require.NoError(t, marker.Create(gitRoot, markerName, "1"))

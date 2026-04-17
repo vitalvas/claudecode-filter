@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	prefix = "claudecode-filter-"
+	Prefix = "claudecode-filter-"
 	tmpDir = ".tmp"
 )
 
@@ -25,7 +25,7 @@ func Create(cwd, name, value string) error {
 		return err
 	}
 
-	return os.WriteFile(filepath.Join(dir, prefix+name), []byte(value), 0o644)
+	return os.WriteFile(filepath.Join(dir, Prefix+name), []byte(value), 0o644)
 }
 
 // Exists checks whether a marker file exists.
@@ -35,7 +35,7 @@ func Exists(cwd, name string) bool {
 		return false
 	}
 
-	_, err = os.Stat(filepath.Join(root, tmpDir, prefix+name))
+	_, err = os.Stat(filepath.Join(root, tmpDir, Prefix+name))
 
 	return err == nil
 }
@@ -47,7 +47,7 @@ func Consume(cwd, name string) (string, bool) {
 		return "", false
 	}
 
-	path := filepath.Join(root, tmpDir, prefix+name)
+	path := filepath.Join(root, tmpDir, Prefix+name)
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -74,7 +74,7 @@ func Cleanup(cwd string) {
 	}
 
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasPrefix(entry.Name(), prefix) {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), Prefix) {
 			os.Remove(filepath.Join(dir, entry.Name()))
 		}
 	}

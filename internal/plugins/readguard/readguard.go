@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/vitalvas/claudecode-filter/internal/hook"
+	"github.com/vitalvas/claudecode-filter/internal/marker"
 	"github.com/vitalvas/gokit/xstrings"
 )
 
@@ -20,6 +21,7 @@ var blockedPatterns = []rule{
 	{pattern: "*.key", reason: "reading *.key files is not allowed"},
 	{pattern: ".env", reason: "reading .env files is not allowed"},
 	{pattern: ".env.*", reason: "reading .env files is not allowed"},
+	{pattern: fmt.Sprintf("%s*", marker.Prefix), reason: "reading marker files is not allowed"},
 	{pattern: "id_rsa*", reason: "reading private key files is not allowed"},
 	{pattern: "id_ecdsa*", reason: "reading private key files is not allowed"},
 	{pattern: "id_ed25519*", reason: "reading private key files is not allowed"},

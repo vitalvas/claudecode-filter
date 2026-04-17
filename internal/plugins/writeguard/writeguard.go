@@ -3,6 +3,8 @@ package writeguard
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/vitalvas/claudecode-filter/internal/hook"
 	"github.com/vitalvas/claudecode-filter/internal/marker"
@@ -32,6 +34,10 @@ func New() hook.Middleware {
 }
 
 func handleWriteGuard(input hook.Input) *hook.Result {
+	if result := blockMarkerFileWrite(input); result != nil {
+		return result
+	}
+
 	if input.CWD == "" {
 		return nil
 	}
@@ -51,6 +57,46 @@ func handleWriteGuard(input hook.Input) *hook.Result {
 	}
 
 	return nil
+}
+
+func blockMarkerFileWrite(input hook.Input) *hook.Result {
+	switch input.ToolName {
+	case "Write", "Edit":
+		var ti struct {
+			FilePath string `json:"file_path"`
+		}
+
+		if err := json.Unmarshal(input.ToolInput, &ti); err != nil {
+			return nil
+		}
+
+		if strings.HasPrefix(filepath.Base(ti.FilePath), marker.Prefix) {
+			return denyPreToolUse("modifying marker files is not allowed")
+		}
+	case "Bash":
+		var bashInput hook.BashToolInput
+		if err := json.Unmarshal(input.ToolInput, &bashInput); err != nil {
+			return nil
+		}
+
+		if bashTargetsMarkerFile(bashInput.Command) {
+			return denyPreToolUse("modifying marker files is not allowed")
+		}
+	}
+
+	return nil
+}
+
+func bashTargetsMarkerFile(command string) bool {
+	args := strings.Fields(command)
+
+	for _, arg := range args {
+		if strings.Contains(arg, marker.Prefix) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func isBashWrite(input hook.Input) bool {

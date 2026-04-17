@@ -26,7 +26,7 @@ func TestCreate(t *testing.T) {
 		gitRoot := setupGitRepo(t)
 		require.NoError(t, Create(gitRoot, testMarker, "hello"))
 
-		path := filepath.Join(gitRoot, ".tmp", prefix+testMarker)
+		path := filepath.Join(gitRoot, ".tmp", Prefix+testMarker)
 		assert.FileExists(t, path)
 
 		data, err := os.ReadFile(path)
@@ -41,7 +41,7 @@ func TestCreate(t *testing.T) {
 
 		require.NoError(t, Create(subDir, testMarker, "val"))
 
-		path := filepath.Join(gitRoot, ".tmp", prefix+testMarker)
+		path := filepath.Join(gitRoot, ".tmp", Prefix+testMarker)
 		assert.FileExists(t, path)
 	})
 
@@ -59,7 +59,7 @@ func TestConsume(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, "myvalue", val)
 
-		path := filepath.Join(gitRoot, ".tmp", prefix+testMarker)
+		path := filepath.Join(gitRoot, ".tmp", Prefix+testMarker)
 		assert.NoFileExists(t, path)
 	})
 
@@ -90,8 +90,8 @@ func TestCleanup(t *testing.T) {
 
 		Cleanup(gitRoot)
 
-		assert.NoFileExists(t, filepath.Join(tmpPath, fmt.Sprintf("%s%s", prefix, "one")))
-		assert.NoFileExists(t, filepath.Join(tmpPath, fmt.Sprintf("%s%s", prefix, "two")))
+		assert.NoFileExists(t, filepath.Join(tmpPath, fmt.Sprintf("%s%s", Prefix, "one")))
+		assert.NoFileExists(t, filepath.Join(tmpPath, fmt.Sprintf("%s%s", Prefix, "two")))
 		assert.FileExists(t, filepath.Join(tmpPath, "other-file"))
 	})
 
