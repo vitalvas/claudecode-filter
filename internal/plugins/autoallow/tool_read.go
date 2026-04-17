@@ -21,7 +21,10 @@ func getAllowedReadDirs() []string {
 	allowedReadDirsOnce.Do(func() {
 		home := os.Getenv("HOME")
 		if home != "" {
-			allowedReadDirs = append(allowedReadDirs, filepath.Join(home, ".cargo", "registry", "src"))
+			allowedReadDirs = append(allowedReadDirs,
+				filepath.Join(home, ".cargo", "registry", "src"),
+				filepath.Join(home, ".rustup"),
+			)
 		}
 
 		out, err := exec.Command("go", "env", "GOMODCACHE").Output()
