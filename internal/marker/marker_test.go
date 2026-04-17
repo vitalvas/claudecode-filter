@@ -78,6 +78,54 @@ func TestConsume(t *testing.T) {
 	})
 }
 
+func TestRead(t *testing.T) {
+	t.Run("returns value without removing", func(t *testing.T) {
+		gitRoot := setupGitRepo(t)
+		require.NoError(t, Create(gitRoot, testMarker, "myvalue"))
+
+		val, ok := Read(gitRoot, testMarker)
+		assert.True(t, ok)
+		assert.Equal(t, "myvalue", val)
+
+		// Still exists
+		assert.True(t, Exists(gitRoot, testMarker))
+	})
+
+	t.Run("returns false for nonexistent", func(t *testing.T) {
+		gitRoot := setupGitRepo(t)
+
+		val, ok := Read(gitRoot, testMarker)
+		assert.False(t, ok)
+		assert.Empty(t, val)
+	})
+
+	t.Run("returns false when no git root", func(t *testing.T) {
+		val, ok := Read(os.TempDir(), testMarker)
+		assert.False(t, ok)
+		assert.Empty(t, val)
+	})
+}
+
+func TestRemove(t *testing.T) {
+	t.Run("removes marker", func(t *testing.T) {
+		gitRoot := setupGitRepo(t)
+		require.NoError(t, Create(gitRoot, testMarker, "val"))
+
+		Remove(gitRoot, testMarker)
+
+		assert.False(t, Exists(gitRoot, testMarker))
+	})
+
+	t.Run("no error when nonexistent", func(t *testing.T) {
+		gitRoot := setupGitRepo(t)
+		Remove(gitRoot, testMarker)
+	})
+
+	t.Run("no error when no git root", func(_ *testing.T) {
+		Remove(os.TempDir(), testMarker)
+	})
+}
+
 func TestCleanup(t *testing.T) {
 	t.Run("removes all prefixed files", func(t *testing.T) {
 		gitRoot := setupGitRepo(t)

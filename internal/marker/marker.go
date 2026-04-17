@@ -40,6 +40,31 @@ func Exists(cwd, name string) bool {
 	return err == nil
 }
 
+// Read returns the value of a marker file without removing it.
+func Read(cwd, name string) (string, bool) {
+	root, err := findGitRoot(cwd)
+	if err != nil {
+		return "", false
+	}
+
+	data, err := os.ReadFile(filepath.Join(root, tmpDir, Prefix+name))
+	if err != nil {
+		return "", false
+	}
+
+	return string(data), true
+}
+
+// Remove deletes a marker file.
+func Remove(cwd, name string) {
+	root, err := findGitRoot(cwd)
+	if err != nil {
+		return
+	}
+
+	os.Remove(filepath.Join(root, tmpDir, Prefix+name))
+}
+
 // Consume removes a marker file and returns its value and whether it existed.
 func Consume(cwd, name string) (string, bool) {
 	root, err := findGitRoot(cwd)

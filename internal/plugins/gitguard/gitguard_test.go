@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -218,15 +219,46 @@ func TestHandleUserPromptSubmit(t *testing.T) {
 	h := hook.BuildChain(New())
 	gitRoot := setupGitRepo(t)
 
-	t.Run("creates marker", func(t *testing.T) {
+	t.Run("creates one-shot marker", func(t *testing.T) {
 		h(hook.Input{
 			HookEventName: hook.EventUserPromptSubmit,
 			CWD:           gitRoot,
 			Prompt:        "ok git commit",
 		})
 
-		_, ok := marker.Consume(gitRoot, markerName)
+		val, ok := marker.Read(gitRoot, markerName)
 		assert.True(t, ok)
+		assert.Equal(t, "1", val)
+
+		marker.Remove(gitRoot, markerName)
+	})
+
+	t.Run("creates timed marker with hours", func(t *testing.T) {
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "ok git commit for 1h",
+		})
+
+		val, ok := marker.Read(gitRoot, markerName)
+		assert.True(t, ok)
+		assert.NotEqual(t, "1", val)
+
+		marker.Remove(gitRoot, markerName)
+	})
+
+	t.Run("creates timed marker with minutes", func(t *testing.T) {
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "ok git commit for 30m",
+		})
+
+		val, ok := marker.Read(gitRoot, markerName)
+		assert.True(t, ok)
+		assert.NotEqual(t, "1", val)
+
+		marker.Remove(gitRoot, markerName)
 	})
 
 	t.Run("case insensitive", func(t *testing.T) {
@@ -250,6 +282,73 @@ func TestHandleUserPromptSubmit(t *testing.T) {
 		_, ok := marker.Consume(gitRoot, markerName)
 		assert.False(t, ok)
 	})
+}
+
+func TestTimedAllow(t *testing.T) {
+	h := hook.BuildChain(New())
+	gitRoot := setupGitRepo(t)
+
+	t.Run("allows multiple operations within time", func(t *testing.T) {
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "ok git commit for 1h",
+		})
+
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git commit -m 'first'"})
+		input := hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		}
+
+		assert.Nil(t, h(input))
+		assert.Nil(t, h(input))
+		assert.Nil(t, h(input))
+
+		marker.Remove(gitRoot, markerName)
+	})
+
+	t.Run("blocks after expiry", func(t *testing.T) {
+		marker.Create(gitRoot, markerName, "1000000000")
+
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git commit -m 'test'"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+	})
+}
+
+func TestParseDuration(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  time.Duration
+	}{
+		{name: "1 hour", input: "1h", want: time.Hour},
+		{name: "2 hours", input: "2h", want: 2 * time.Hour},
+		{name: "30 minutes", input: "30m", want: 30 * time.Minute},
+		{name: "invalid unit", input: "1x", want: 0},
+		{name: "zero", input: "0h", want: 0},
+		{name: "too short", input: "h", want: 0},
+		{name: "empty", input: "", want: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, parseDuration(tt.input))
+		})
+	}
 }
 
 func TestHandleSessionEnd(t *testing.T) {

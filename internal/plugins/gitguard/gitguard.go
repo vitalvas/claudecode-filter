@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/vitalvas/claudecode-filter/internal/hook"
 	"github.com/vitalvas/claudecode-filter/internal/marker"
@@ -51,25 +53,86 @@ func handlePreToolUse(input hook.Input) *hook.Result {
 		return denyPreToolUse(fmt.Sprintf("commit messages must not contain '%s' headers", header))
 	}
 
-	if _, ok := marker.Consume(input.CWD, markerName); ok {
+	if isAllowed(input.CWD) {
 		return nil
 	}
 
 	return denyPreToolUse(fmt.Sprintf(
-		"git %s requires explicit user approval. Ask the user to say \"ok git %s\" first.",
+		"git %s requires explicit user approval. Ask the user to say \"ok git %s\" (one-shot) or \"ok git %s for 1h\" (timed).",
 		strings.Join(ops, ", "),
+		ops[0],
 		ops[0],
 	))
 }
 
-var okGitRe = regexp.MustCompile(`(?i)\bok\s+git\s+[\w-]+`)
+var okGitRe = regexp.MustCompile(`(?i)\bok\s+git\s+[\w-]+(?:\s+for\s+(\d+[hm]))?`)
 
 func handleUserPromptSubmit(input hook.Input) {
-	if !okGitRe.MatchString(input.Prompt) {
+	matches := okGitRe.FindStringSubmatch(input.Prompt)
+	if matches == nil {
 		return
 	}
 
-	marker.Create(input.CWD, markerName, "1")
+	value := "1"
+
+	if duration := matches[1]; duration != "" {
+		d := parseDuration(duration)
+		if d > 0 {
+			value = strconv.FormatInt(time.Now().Add(d).Unix(), 10)
+		}
+	}
+
+	marker.Create(input.CWD, markerName, value)
+}
+
+func parseDuration(s string) time.Duration {
+	if len(s) < 2 {
+		return 0
+	}
+
+	val, err := strconv.Atoi(s[:len(s)-1])
+	if err != nil || val <= 0 {
+		return 0
+	}
+
+	switch s[len(s)-1] {
+	case 'h':
+		return time.Duration(val) * time.Hour
+	case 'm':
+		return time.Duration(val) * time.Minute
+	}
+
+	return 0
+}
+
+func isAllowed(cwd string) bool {
+	val, ok := marker.Read(cwd, markerName)
+	if !ok {
+		return false
+	}
+
+	// One-shot: value is "1", consume it
+	if val == "1" {
+		marker.Remove(cwd, markerName)
+
+		return true
+	}
+
+	// Timed: value is expiry timestamp
+	expiry, err := strconv.ParseInt(val, 10, 64)
+	if err != nil {
+		marker.Remove(cwd, markerName)
+
+		return false
+	}
+
+	if time.Now().Unix() > expiry {
+		marker.Remove(cwd, markerName)
+
+		return false
+	}
+
+	return true
 }
 
 func handleSessionEnd(input hook.Input) {
