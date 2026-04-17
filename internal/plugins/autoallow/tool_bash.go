@@ -19,10 +19,7 @@ var projectScopedPrefixes = []string{
 }
 
 var allowedBashPrefixes = []string{
-	"cargo check",
-	"cargo clippy",
-	"cargo doc",
-	"cargo tree",
+	"cargo",
 	"cat",
 	"curl",
 	"date",
@@ -89,6 +86,7 @@ var allowedBashPrefixes = []string{
 	"ls",
 	"lsof",
 	"markdownlint",
+	"rustc",
 	"nslookup",
 	"ping",
 	"ps",
@@ -98,6 +96,7 @@ var allowedBashPrefixes = []string{
 	"sort",
 	"stat",
 	"tail",
+	"task",
 	"tree",
 	"uname",
 	"uniq",
