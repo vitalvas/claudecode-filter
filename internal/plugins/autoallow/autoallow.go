@@ -33,7 +33,7 @@ func New() hook.Middleware {
 				if result := handleBash(input); result != nil {
 					return result
 				}
-			case "Read":
+			case "Read", "Grep", "Glob":
 				if result := handleRead(input); result != nil {
 					return result
 				}

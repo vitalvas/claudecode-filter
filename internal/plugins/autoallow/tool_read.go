@@ -40,6 +40,7 @@ func getAllowedReadDirs() []string {
 
 type readToolInput struct {
 	FilePath string `json:"file_path"`
+	Path     string `json:"path"`
 }
 
 func handleRead(input hook.Input) *hook.Result {
@@ -48,8 +49,17 @@ func handleRead(input hook.Input) *hook.Result {
 		return nil
 	}
 
+	target := readInput.FilePath
+	if target == "" {
+		target = readInput.Path
+	}
+
+	if target == "" {
+		return nil
+	}
+
 	for _, dir := range getAllowedReadDirs() {
-		if strings.HasPrefix(readInput.FilePath, fmt.Sprintf("%s/", dir)) {
+		if strings.HasPrefix(target, fmt.Sprintf("%s/", dir)) {
 			return allowPermissionRequest()
 		}
 	}
