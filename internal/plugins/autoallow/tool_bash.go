@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/vitalvas/claudecode-filter/internal/hook"
@@ -107,16 +108,32 @@ var allowedBashPrefixes = []string{
 	"yake",
 }
 
+var envVarPrefix = regexp.MustCompile(`^(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)+`)
+
+func stripEnvVars(command string) string {
+	return envVarPrefix.ReplaceAllString(command, "")
+}
+
+func matchesPrefix(command string, prefixes []string) string {
+	cmd := stripEnvVars(command)
+
+	for _, prefix := range prefixes {
+		if cmd == prefix || strings.HasPrefix(cmd, fmt.Sprintf("%s ", prefix)) {
+			return prefix
+		}
+	}
+
+	return ""
+}
+
 func handleBashDeny(input hook.Input) *hook.Result {
 	var bashInput hook.BashToolInput
 	if err := json.Unmarshal(input.ToolInput, &bashInput); err != nil {
 		return nil
 	}
 
-	for _, prefix := range deniedBashPrefixes {
-		if bashInput.Command == prefix || strings.HasPrefix(bashInput.Command, fmt.Sprintf("%s ", prefix)) {
-			return denyPreToolUse(fmt.Sprintf("command '%s' is not allowed", prefix))
-		}
+	if prefix := matchesPrefix(bashInput.Command, deniedBashPrefixes); prefix != "" {
+		return denyPreToolUse(fmt.Sprintf("command '%s' is not allowed", prefix))
 	}
 
 	return nil
@@ -128,13 +145,11 @@ func handleBash(input hook.Input) *hook.Result {
 		return nil
 	}
 
-	for _, prefix := range allowedBashPrefixes {
-		if bashInput.Command == prefix || strings.HasPrefix(bashInput.Command, fmt.Sprintf("%s ", prefix)) {
-			return allowPermissionRequest()
-		}
+	if matchesPrefix(bashInput.Command, allowedBashPrefixes) != "" {
+		return allowPermissionRequest()
 	}
 
-	if input.CWD != "" && isProjectScopedCommand(bashInput.Command, input.CWD) {
+	if input.CWD != "" && isProjectScopedCommand(stripEnvVars(bashInput.Command), input.CWD) {
 		return allowPermissionRequest()
 	}
 
@@ -142,10 +157,8 @@ func handleBash(input hook.Input) *hook.Result {
 }
 
 func isProjectScopedCommand(command, cwd string) bool {
-	for _, prefix := range projectScopedPrefixes {
-		if command == prefix || strings.HasPrefix(command, fmt.Sprintf("%s ", prefix)) {
-			return allPathArgsInProject(command, cwd)
-		}
+	if matchesPrefix(command, projectScopedPrefixes) != "" {
+		return allPathArgsInProject(command, cwd)
 	}
 
 	return false

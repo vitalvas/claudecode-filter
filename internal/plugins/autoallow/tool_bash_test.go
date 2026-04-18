@@ -189,6 +189,23 @@ func TestHandleBash(t *testing.T) {
 		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "telnet")
 	})
 
+	t.Run("allows command with leading env vars", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{
+			Command: "PATH=\"$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin:$PATH\" cargo build -p network-manager",
+		})
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PermissionRequestOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
+	})
+
 	t.Run("does not allow unknown command", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "rm -rf /"})
 		result := h(hook.Input{
