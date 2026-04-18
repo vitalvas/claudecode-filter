@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/vitalvas/claudecode-filter/internal/hook"
 	"github.com/vitalvas/claudecode-filter/internal/marker"
@@ -150,7 +151,7 @@ func isUnderDir(filePath, dir string) bool {
 		return false
 	}
 
-	return len(rel) > 0 && rel[0] != '.'
+	return len(rel) > 0 && !strings.HasPrefix(rel, "..")
 }
 
 func askPreToolUse(reason string) *hook.Result {

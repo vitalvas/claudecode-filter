@@ -139,7 +139,7 @@ func isUnderDir(filePath, dir string) bool {
 		return false
 	}
 
-	return len(rel) > 0 && rel[0] != '.'
+	return len(rel) > 0 && !strings.HasPrefix(rel, "..")
 }
 
 var okAllowRootreadRe = regexp.MustCompile(`(?i)\bok\s+allow\s+rootread\b`)
