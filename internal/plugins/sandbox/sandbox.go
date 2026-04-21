@@ -21,6 +21,7 @@ var allowedExceptions = []string{}
 func init() {
 	home := os.Getenv("HOME")
 	if home != "" {
+		allowedRoots = append(allowedRoots, filepath.Join(home, ".claude"))
 		allowedRoots = append(allowedRoots, filepath.Join(home, "workspace"))
 	}
 }
