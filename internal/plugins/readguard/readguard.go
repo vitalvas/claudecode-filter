@@ -32,9 +32,18 @@ var allowedPatterns = []string{
 	"*.pub",
 }
 
+var allowedDirs []string
+
 type blockedDir struct {
 	path         string
 	allowProject bool
+}
+
+func init() {
+	home := os.Getenv("HOME")
+	if home != "" {
+		allowedDirs = append(allowedDirs, filepath.Join(home, ".claude"))
+	}
 }
 
 // New creates the readguard middleware.
@@ -120,6 +129,12 @@ func handleRead(input hook.Input, blockedDirs []blockedDir) *hook.Result {
 
 		if matched {
 			return denyPreToolUse(r.reason)
+		}
+	}
+
+	for _, dir := range allowedDirs {
+		if isUnderDir(filePath, dir) || filePath == dir {
+			return nil
 		}
 	}
 
