@@ -27,6 +27,7 @@ var allowedBashPrefixes = []string{
 	"df",
 	"diff",
 	"dig",
+	"docker",
 	"du",
 	"env",
 	"file",
