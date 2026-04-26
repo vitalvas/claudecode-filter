@@ -53,12 +53,12 @@ func handlePreToolUse(input hook.Input) *hook.Result {
 		return nil
 	}
 
-	if isTmpPath(path) {
-		return denyPreToolUse("The /tmp dir is prohibited. Use ${PROJECTROOT}/.tmp/ for it.")
-	}
-
 	if isAllowedPath(path) {
 		return nil
+	}
+
+	if isTmpPath(path) {
+		return denyPreToolUse("The /tmp dir is prohibited. Use ${PROJECTROOT}/.tmp/ for it.")
 	}
 
 	if input.CWD != "" && isUnderDir(path, input.CWD) {
