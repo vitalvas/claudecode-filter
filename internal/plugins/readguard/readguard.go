@@ -44,6 +44,9 @@ func init() {
 	if home != "" {
 		allowedDirs = append(allowedDirs, filepath.Join(home, ".claude"))
 	}
+
+	uid := fmt.Sprintf("%d", os.Getuid())
+	allowedDirs = append(allowedDirs, filepath.Join("/private/tmp", fmt.Sprintf("claude-%s", uid)))
 }
 
 // New creates the readguard middleware.
