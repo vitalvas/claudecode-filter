@@ -24,6 +24,9 @@ func init() {
 		allowedRoots = append(allowedRoots, filepath.Join(home, ".claude"))
 		allowedRoots = append(allowedRoots, filepath.Join(home, "workspace"))
 	}
+
+	uid := fmt.Sprintf("%d", os.Getuid())
+	allowedRoots = append(allowedRoots, filepath.Join("/private/tmp", fmt.Sprintf("claude-%s", uid)))
 }
 
 // New creates the sandbox middleware.
@@ -115,7 +118,8 @@ func extractBashPath(command string) string {
 }
 
 func isTmpPath(path string) bool {
-	return strings.HasPrefix(path, "/tmp/") || path == "/tmp"
+	return strings.HasPrefix(path, "/tmp/") || path == "/tmp" ||
+		strings.HasPrefix(path, "/private/tmp/") || path == "/private/tmp"
 }
 
 func isAllowedPath(path string) bool {
