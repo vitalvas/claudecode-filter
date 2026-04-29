@@ -96,6 +96,7 @@ var allowedBashPrefixes = []string{
 	"pwd",
 	"rg",
 	"scp",
+	"sed",
 	"sort",
 	"stat",
 	"tail",
