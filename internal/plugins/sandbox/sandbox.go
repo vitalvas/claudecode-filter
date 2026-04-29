@@ -21,8 +21,12 @@ var allowedExceptions = []string{}
 func init() {
 	home := os.Getenv("HOME")
 	if home != "" {
-		allowedRoots = append(allowedRoots, filepath.Join(home, ".claude"))
-		allowedRoots = append(allowedRoots, filepath.Join(home, "workspace"))
+		allowedRoots = append(allowedRoots,
+			filepath.Join(home, ".cargo", "registry", "src"),
+			filepath.Join(home, ".claude"),
+			filepath.Join(home, ".rustup"),
+			filepath.Join(home, "workspace"),
+		)
 	}
 
 	uid := fmt.Sprintf("%d", os.Getuid())
