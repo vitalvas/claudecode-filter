@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -42,7 +43,18 @@ type blockedDir struct {
 func init() {
 	home := os.Getenv("HOME")
 	if home != "" {
-		allowedDirs = append(allowedDirs, filepath.Join(home, ".claude"))
+		allowedDirs = append(allowedDirs,
+			filepath.Join(home, ".cargo", "registry", "src"),
+			filepath.Join(home, ".claude"),
+			filepath.Join(home, ".rustup"),
+		)
+	}
+
+	out, err := exec.Command("go", "env", "GOMODCACHE").Output()
+	if err == nil {
+		if dir := strings.TrimSpace(string(out)); dir != "" {
+			allowedDirs = append(allowedDirs, dir)
+		}
 	}
 
 	uid := fmt.Sprintf("%d", os.Getuid())
