@@ -10,9 +10,11 @@ import (
 var allowedWebFetchDomains = []string{
 	"aws.amazon.com",
 	"blog.vitalvas.com",
+	"deepwiki.com",
 	"docs.rs",
 	"en.wikipedia.org",
 	"github.com",
+	"gitlab.com",
 	"localhost",
 	"raw.githubusercontent.com",
 	"www.iana.org",
