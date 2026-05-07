@@ -5,11 +5,11 @@ import (
 	"net/url"
 
 	"github.com/vitalvas/claudecode-filter/internal/hook"
+	"github.com/vitalvas/gokit/xstrings"
 )
 
 var allowedWebFetchDomains = []string{
 	"aws.amazon.com",
-	"blog.vitalvas.com",
 	"deepwiki.com",
 	"docs.rs",
 	"en.wikipedia.org",
@@ -19,6 +19,12 @@ var allowedWebFetchDomains = []string{
 	"raw.githubusercontent.com",
 	"www.iana.org",
 	"www.rfc-editor.org",
+}
+
+var allowedWebFetchPatterns = []string{
+	"*.vitalvas.com",
+	"*.vitalvas.dev",
+	"*.vitalvas.net",
 }
 
 func handleWebFetch(input hook.Input) *hook.Result {
@@ -32,8 +38,16 @@ func handleWebFetch(input hook.Input) *hook.Result {
 		return nil
 	}
 
+	hostname := parsed.Hostname()
+
 	for _, domain := range allowedWebFetchDomains {
-		if parsed.Hostname() == domain {
+		if hostname == domain {
+			return allowPermissionRequest()
+		}
+	}
+
+	for _, pattern := range allowedWebFetchPatterns {
+		if matched, _ := xstrings.GlobMatch(pattern, hostname); matched {
 			return allowPermissionRequest()
 		}
 	}
