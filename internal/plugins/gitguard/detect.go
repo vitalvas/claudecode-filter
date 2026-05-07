@@ -53,19 +53,28 @@ func containsBlockedCommitHeader(command string) (string, bool) {
 func detectGitOp(segment string) (string, bool) {
 	words := strings.Fields(strings.TrimSpace(segment))
 
-	gitFound := false
-	for _, w := range words {
-		if w == "git" {
-			gitFound = true
+	for i, w := range words {
+		if w != "git" {
 			continue
 		}
 
-		if gitFound {
+		for j := i + 1; j < len(words); j++ {
+			if strings.HasPrefix(words[j], "-") {
+				// skip next word if flag takes a value (e.g. -C /path)
+				if j+1 < len(words) && !strings.Contains(words[j], "=") {
+					j++
+				}
+
+				continue
+			}
+
 			for _, op := range blockedOps {
-				if w == op {
+				if words[j] == op {
 					return op, true
 				}
 			}
+
+			break
 		}
 	}
 
