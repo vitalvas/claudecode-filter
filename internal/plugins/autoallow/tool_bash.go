@@ -79,6 +79,7 @@ var allowedBashPrefixes = []string{
 	"gofmt",
 	"goimports",
 	"golangci-lint run",
+	"goreleaser",
 	"grep",
 	"head",
 	"hostname",
