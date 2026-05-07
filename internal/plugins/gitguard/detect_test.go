@@ -204,12 +204,152 @@ func TestDetectBlockedOps(t *testing.T) {
 			command: "git commit --amend",
 			want:    []string{"commit"},
 		},
+		{
+			name:    "stash push is not blocked",
+			command: "git stash push -m 'wip'",
+			want:    nil,
+		},
+		{
+			name:    "stash pop is not blocked",
+			command: "git stash pop",
+			want:    nil,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := detectBlockedOps(tt.command)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestDetectDeniedCommitType(t *testing.T) {
+	tests := []struct {
+		name      string
+		command   string
+		wantType  string
+		wantFound bool
+	}{
+		{
+			name:      "denied: style",
+			command:   "git commit -m 'style: format code'",
+			wantType:  "style",
+			wantFound: true,
+		},
+		{
+			name:      "denied: refactor",
+			command:   "git commit -m 'refactor: extract method'",
+			wantType:  "refactor",
+			wantFound: true,
+		},
+		{
+			name:      "denied: test",
+			command:   "git commit -m 'test: add unit tests'",
+			wantType:  "test",
+			wantFound: true,
+		},
+		{
+			name:      "denied: build",
+			command:   "git commit -m 'build: update deps'",
+			wantType:  "build",
+			wantFound: true,
+		},
+		{
+			name:      "denied: ci",
+			command:   "git commit -m 'ci: fix pipeline'",
+			wantType:  "ci",
+			wantFound: true,
+		},
+		{
+			name:      "denied: refactor with scope",
+			command:   "git commit -m 'refactor(auth): simplify logic'",
+			wantType:  "refactor",
+			wantFound: true,
+		},
+		{
+			name:      "denied: breaking change indicator",
+			command:   "git commit -m 'feat!: rewrite API'",
+			wantType:  "!",
+			wantFound: true,
+		},
+		{
+			name:      "denied: breaking change with scope",
+			command:   "git commit -m 'fix(auth)!: change token format'",
+			wantType:  "!",
+			wantFound: true,
+		},
+		{
+			name:      "allowed: feat",
+			command:   "git commit -m 'feat: add feature'",
+			wantFound: false,
+		},
+		{
+			name:      "allowed: fix",
+			command:   "git commit -m 'fix: resolve bug'",
+			wantFound: false,
+		},
+		{
+			name:      "allowed: perf",
+			command:   "git commit -m 'perf: optimize query'",
+			wantFound: false,
+		},
+		{
+			name:      "allowed: deps",
+			command:   "git commit -m 'deps: update modules'",
+			wantFound: false,
+		},
+		{
+			name:      "allowed: revert",
+			command:   "git commit -m 'revert: undo change'",
+			wantFound: false,
+		},
+		{
+			name:      "allowed: docs",
+			command:   "git commit -m 'docs: update readme'",
+			wantFound: false,
+		},
+		{
+			name:      "allowed: chore",
+			command:   "git commit -m 'chore: cleanup'",
+			wantFound: false,
+		},
+		{
+			name:      "non-conventional commit",
+			command:   "git commit -m 'random message'",
+			wantFound: false,
+		},
+		{
+			name:      "no commit message",
+			command:   "git push origin main",
+			wantFound: false,
+		},
+		{
+			name:      "empty command",
+			command:   "",
+			wantFound: false,
+		},
+		{
+			name:      "double quoted message",
+			command:   `git commit -m "refactor: extract method"`,
+			wantType:  "refactor",
+			wantFound: true,
+		},
+		{
+			name:      "heredoc commit message",
+			command:   "git commit -m \"$(cat <<'EOF'\nstyle: format code\nEOF\n)\"",
+			wantFound: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			commitType, found := detectDeniedCommitType(tt.command)
+			assert.Equal(t, tt.wantFound, found)
+
+			if tt.wantFound {
+				assert.Equal(t, tt.wantType, commitType)
+			}
 		})
 	}
 }

@@ -53,6 +53,17 @@ func handlePreToolUse(input hook.Input) *hook.Result {
 		return denyPreToolUse(fmt.Sprintf("commit messages must not contain '%s' headers", header))
 	}
 
+	if commitType, ok := detectDeniedCommitType(bashInput.Command); ok {
+		if commitType == "!" {
+			return denyPreToolUse("breaking change indicator '!' is not allowed in commit messages")
+		}
+
+		return denyPreToolUse(fmt.Sprintf(
+			"commit type '%s' is not allowed. Use one of: feat, fix, perf, deps, revert, docs, chore",
+			commitType,
+		))
+	}
+
 	if isAllowed(input.CWD) {
 		return nil
 	}
