@@ -12,6 +12,10 @@ import (
 
 const markerName = "readonly"
 
+var protectedFiles = []string{
+	".yake.yaml",
+}
+
 var writeTools = map[string]bool{
 	"Write":        true,
 	"Edit":         true,
@@ -34,6 +38,10 @@ func New() hook.Middleware {
 }
 
 func handleWriteGuard(input hook.Input) *hook.Result {
+	if result := blockProtectedFileWrite(input); result != nil {
+		return result
+	}
+
 	if result := blockMarkerFileWrite(input); result != nil {
 		return result
 	}
@@ -53,6 +61,28 @@ func handleWriteGuard(input hook.Input) *hook.Result {
 	if input.ToolName == "Bash" {
 		if isBashWrite(input) {
 			return denyPreToolUse(fmt.Sprintf("writes are blocked: readonly marker is active (remove %s to unblock)", markerPath()))
+		}
+	}
+
+	return nil
+}
+
+func blockProtectedFileWrite(input hook.Input) *hook.Result {
+	switch input.ToolName {
+	case "Write", "Edit":
+		var ti struct {
+			FilePath string `json:"file_path"`
+		}
+
+		if err := json.Unmarshal(input.ToolInput, &ti); err != nil {
+			return nil
+		}
+
+		base := filepath.Base(ti.FilePath)
+		for _, protected := range protectedFiles {
+			if base == protected {
+				return denyPreToolUse(fmt.Sprintf("modifying %s is not allowed", protected))
+			}
 		}
 	}
 
