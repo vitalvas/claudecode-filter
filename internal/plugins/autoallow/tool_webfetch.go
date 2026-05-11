@@ -22,6 +22,8 @@ var allowedWebFetchDomains = []string{
 }
 
 var allowedWebFetchPatterns = []string{
+	"*.github.com",
+	"*.github.io",
 	"*.vitalvas.com",
 	"*.vitalvas.dev",
 	"*.vitalvas.net",
