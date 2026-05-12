@@ -58,6 +58,12 @@ func handleRead(input hook.Input) *hook.Result {
 		return nil
 	}
 
+	target = expandHome(target)
+
+	if input.CWD != "" && isUnderDir(target, input.CWD) {
+		return allowPermissionRequest()
+	}
+
 	for _, dir := range getAllowedReadDirs() {
 		if strings.HasPrefix(target, fmt.Sprintf("%s/", dir)) {
 			return allowPermissionRequest()
@@ -65,4 +71,24 @@ func handleRead(input hook.Input) *hook.Result {
 	}
 
 	return nil
+}
+
+func expandHome(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home := os.Getenv("HOME")
+		if home != "" {
+			return filepath.Join(home, path[2:])
+		}
+	}
+
+	return path
+}
+
+func isUnderDir(filePath, dir string) bool {
+	rel, err := filepath.Rel(dir, filePath)
+	if err != nil {
+		return false
+	}
+
+	return len(rel) > 0 && !strings.HasPrefix(rel, "..")
 }
