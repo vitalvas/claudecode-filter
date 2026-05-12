@@ -299,3 +299,26 @@ func makeInputWithCWD(toolName, event string, toolInput any, cwd string) hook.In
 
 	return input
 }
+
+func TestExpandHome(t *testing.T) {
+	home := os.Getenv("HOME")
+
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{name: "tilde path", path: "~/workspace/project/file.go", want: filepath.Join(home, "workspace/project/file.go")},
+		{name: "tilde only slash", path: "~/", want: home},
+		{name: "absolute path unchanged", path: "/usr/local/bin/tool", want: "/usr/local/bin/tool"},
+		{name: "relative path unchanged", path: "relative/path/file.go", want: "relative/path/file.go"},
+		{name: "tilde without slash", path: "~user/file.go", want: "~user/file.go"},
+		{name: "empty string", path: "", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, expandHome(tt.path))
+		})
+	}
+}

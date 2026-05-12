@@ -108,7 +108,7 @@ func handleRead(input hook.Input, blockedDirs []blockedDir) *hook.Result {
 		return nil
 	}
 
-	filePath := readInput.FilePath
+	filePath := expandHome(readInput.FilePath)
 	base := filepath.Base(filePath)
 
 	if isAllowed(base) {
@@ -173,6 +173,17 @@ func isAllowed(base string) bool {
 	}
 
 	return false
+}
+
+func expandHome(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home := os.Getenv("HOME")
+		if home != "" {
+			return filepath.Join(home, path[2:])
+		}
+	}
+
+	return path
 }
 
 func isUnderDir(filePath, dir string) bool {

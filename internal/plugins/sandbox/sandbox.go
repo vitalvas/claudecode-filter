@@ -89,7 +89,7 @@ func extractPath(input hook.Input) string {
 			return ""
 		}
 
-		return ti.FilePath
+		return expandHome(ti.FilePath)
 	case "Bash":
 		var ti hook.BashToolInput
 		if err := json.Unmarshal(input.ToolInput, &ti); err != nil {
@@ -140,6 +140,17 @@ func isAllowedPath(path string) bool {
 	}
 
 	return false
+}
+
+func expandHome(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home := os.Getenv("HOME")
+		if home != "" {
+			return filepath.Join(home, path[2:])
+		}
+	}
+
+	return path
 }
 
 func isUnderDir(filePath, dir string) bool {
