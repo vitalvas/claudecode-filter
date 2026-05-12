@@ -72,6 +72,29 @@ func denyPreToolUse(reason string) *hook.Result {
 	}
 }
 
+func denyPermissionRequest(reason string) *hook.Result {
+	output := hook.PermissionRequestOutputWrapper{
+		HookSpecificOutput: hook.PermissionRequestOutput{
+			HookEventName: hook.EventPermissionRequest,
+			Decision: hook.PermissionDecision{
+				Behavior: hook.PermissionDeny,
+			},
+		},
+	}
+
+	data, err := json.Marshal(output)
+	if err != nil {
+		return &hook.Result{
+			Stderr:   reason,
+			ExitCode: 2,
+		}
+	}
+
+	return &hook.Result{
+		Stdout: string(data),
+	}
+}
+
 func allowPermissionRequest() *hook.Result {
 	output := hook.PermissionRequestOutputWrapper{
 		HookSpecificOutput: hook.PermissionRequestOutput{

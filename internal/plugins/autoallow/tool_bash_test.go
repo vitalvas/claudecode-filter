@@ -217,6 +217,78 @@ func TestHandleBash(t *testing.T) {
 		assert.Nil(t, result)
 	})
 
+	t.Run("denies cat with abs path outside project", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{
+			Command: "cat /other/project/.yake.yaml",
+		})
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			CWD:           "/my/project",
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PermissionRequestOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.Decision.Behavior)
+	})
+
+	t.Run("denies cat with tilde path outside project", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{
+			Command: "cat ~/workspace/go/src/github.com/vitalvas/gandalf/.yake.yaml",
+		})
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			CWD:           "/my/project",
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PermissionRequestOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.Decision.Behavior)
+	})
+
+	t.Run("allows cat with path inside project", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{
+			Command: "cat /my/project/internal/main.go",
+		})
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			CWD:           "/my/project",
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PermissionRequestOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
+	})
+
+	t.Run("allows cat with relative path", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{
+			Command: "cat internal/main.go",
+		})
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			CWD:           "/my/project",
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PermissionRequestOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
+	})
+
 	t.Run("does not allow partial prefix match", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "go testing"})
 		result := h(hook.Input{

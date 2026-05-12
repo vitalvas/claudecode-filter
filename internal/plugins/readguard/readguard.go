@@ -125,10 +125,14 @@ func handleRead(input hook.Input, blockedDirs []blockedDir) *hook.Result {
 		}
 
 		if dir.allowProject {
-			return askPreToolUse(fmt.Sprintf("reading files under %s outside project requires approval", dir.path))
+			if input.CWD != "" && marker.Exists(input.CWD, "allow-extread") {
+				return askResult(input.HookEventName, fmt.Sprintf("reading files under %s outside project requires approval", dir.path))
+			}
+
+			return denyResult(input.HookEventName, fmt.Sprintf("reading files under %s outside project is not allowed", dir.path))
 		}
 
-		return denyPreToolUse(fmt.Sprintf("reading files under %s is not allowed", dir.path))
+		return denyResult(input.HookEventName, fmt.Sprintf("reading files under %s is not allowed", dir.path))
 	}
 
 	for _, r := range blockedPatterns {
@@ -143,7 +147,7 @@ func handleRead(input hook.Input, blockedDirs []blockedDir) *hook.Result {
 		}
 
 		if matched {
-			return denyPreToolUse(r.reason)
+			return denyResult(input.HookEventName, r.reason)
 		}
 	}
 
@@ -155,10 +159,10 @@ func handleRead(input hook.Input, blockedDirs []blockedDir) *hook.Result {
 
 	if input.CWD != "" && !isUnderDir(filePath, input.CWD) {
 		if marker.Exists(input.CWD, "allow-extread") {
-			return askPreToolUse("reading files outside the project directory requires approval")
+			return askResult(input.HookEventName, "reading files outside the project directory requires approval")
 		}
 
-		return denyPreToolUse("reading files outside the project directory is not allowed")
+		return denyResult(input.HookEventName, "reading files outside the project directory is not allowed")
 	}
 
 	return nil
@@ -199,18 +203,37 @@ func isUnderDir(filePath, dir string) bool {
 	return len(rel) > 0 && !strings.HasPrefix(rel, "..")
 }
 
-func askPreToolUse(reason string) *hook.Result {
+func askResult(event, reason string) *hook.Result {
+	if event == hook.EventPermissionRequest {
+		return permissionRequestResult(hook.PermissionAsk, reason)
+	}
+
+	return preToolUseResult(hook.PermissionAsk, reason)
+}
+
+func denyResult(event, reason string) *hook.Result {
+	if event == hook.EventPermissionRequest {
+		return permissionRequestResult(hook.PermissionDeny, reason)
+	}
+
+	return preToolUseResult(hook.PermissionDeny, reason)
+}
+
+func preToolUseResult(decision, reason string) *hook.Result {
 	output := hook.PreToolUseOutputWrapper{
 		HookSpecificOutput: hook.PreToolUseOutput{
 			HookEventName:            hook.EventPreToolUse,
-			PermissionDecision:       hook.PermissionAsk,
+			PermissionDecision:       decision,
 			PermissionDecisionReason: reason,
 		},
 	}
 
 	data, err := json.Marshal(output)
 	if err != nil {
-		return nil
+		return &hook.Result{
+			Stderr:   reason,
+			ExitCode: 2,
+		}
 	}
 
 	return &hook.Result{
@@ -218,12 +241,13 @@ func askPreToolUse(reason string) *hook.Result {
 	}
 }
 
-func denyPreToolUse(reason string) *hook.Result {
-	output := hook.PreToolUseOutputWrapper{
-		HookSpecificOutput: hook.PreToolUseOutput{
-			HookEventName:            hook.EventPreToolUse,
-			PermissionDecision:       hook.PermissionDeny,
-			PermissionDecisionReason: reason,
+func permissionRequestResult(decision, reason string) *hook.Result {
+	output := hook.PermissionRequestOutputWrapper{
+		HookSpecificOutput: hook.PermissionRequestOutput{
+			HookEventName: hook.EventPermissionRequest,
+			Decision: hook.PermissionDecision{
+				Behavior: decision,
+			},
 		},
 	}
 

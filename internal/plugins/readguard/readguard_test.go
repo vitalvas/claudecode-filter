@@ -154,9 +154,15 @@ func TestReadguard(t *testing.T) {
 			if tt.blocked {
 				require.NotNil(t, result)
 
-				var output hook.PreToolUseOutputWrapper
-				require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
-				assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+				if tt.input.HookEventName == hook.EventPermissionRequest {
+					var output hook.PermissionRequestOutputWrapper
+					require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+					assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.Decision.Behavior)
+				} else {
+					var output hook.PreToolUseOutputWrapper
+					require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+					assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+				}
 			} else {
 				assert.Nil(t, result)
 			}
@@ -235,11 +241,29 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		assert.Nil(t, result)
 	})
 
-	t.Run("asks $GOPATH/src outside project", func(t *testing.T) {
+	t.Run("denies $GOPATH/src outside project", func(t *testing.T) {
 		dirs := []blockedDir{{path: "/gopath/src", allowProject: true}}
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
 			FilePath: "/gopath/src/github.com/other/repo/main.go",
 		}, "/gopath/src/github.com/myorg/myproject")
+		result := handleRead(input, dirs)
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+	})
+
+	t.Run("asks $GOPATH/src outside project with marker", func(t *testing.T) {
+		cwd := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(cwd, ".git"), 0o755))
+		require.NoError(t, marker.Create(cwd, "allow-extread", "1"))
+
+		dirs := []blockedDir{{path: "/gopath/src", allowProject: true}}
+		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
+			FilePath: "/gopath/src/github.com/other/repo/main.go",
+		}, cwd)
 		result := handleRead(input, dirs)
 
 		require.NotNil(t, result)

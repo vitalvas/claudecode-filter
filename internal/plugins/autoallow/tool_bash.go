@@ -3,6 +3,7 @@ package autoallow
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -149,6 +150,10 @@ func handleBash(input hook.Input) *hook.Result {
 	}
 
 	if matchesPrefix(bashInput.Command, allowedBashPrefixes) != "" {
+		if input.CWD != "" && hasAbsPathOutsideProject(stripEnvVars(bashInput.Command), input.CWD) {
+			return denyPermissionRequest("command references paths outside the project directory")
+		}
+
 		return allowPermissionRequest()
 	}
 
@@ -162,6 +167,34 @@ func handleBash(input hook.Input) *hook.Result {
 func isProjectScopedCommand(command, cwd string) bool {
 	if matchesPrefix(command, projectScopedPrefixes) != "" {
 		return allPathArgsInProject(command, cwd)
+	}
+
+	return false
+}
+
+func hasAbsPathOutsideProject(command, cwd string) bool {
+	args := strings.Fields(command)
+
+	for _, arg := range args[1:] {
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+
+		expanded := arg
+		if strings.HasPrefix(expanded, "~/") {
+			if home := os.Getenv("HOME"); home != "" {
+				expanded = filepath.Join(home, expanded[2:])
+			}
+		}
+
+		if !filepath.IsAbs(expanded) {
+			continue
+		}
+
+		rel, err := filepath.Rel(cwd, filepath.Clean(expanded))
+		if err != nil || strings.HasPrefix(rel, "..") {
+			return true
+		}
 	}
 
 	return false
