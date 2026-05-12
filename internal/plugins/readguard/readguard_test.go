@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vitalvas/claudecode-filter/internal/hook"
+	"github.com/vitalvas/claudecode-filter/internal/marker"
 )
 
 func TestReadguard(t *testing.T) {
@@ -258,11 +259,29 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		assert.Nil(t, result)
 	})
 
-	t.Run("asks for read outside project", func(t *testing.T) {
+	t.Run("denies read outside project", func(t *testing.T) {
 		var dirs []blockedDir
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
 			FilePath: "/other/project/file.go",
 		}, "/my/project")
+		result := handleRead(input, dirs)
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+	})
+
+	t.Run("asks read outside project with marker", func(t *testing.T) {
+		cwd := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(cwd, ".git"), 0o755))
+		require.NoError(t, marker.Create(cwd, "allow-extread", "1"))
+
+		var dirs []blockedDir
+		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
+			FilePath: "/other/project/file.go",
+		}, cwd)
 		result := handleRead(input, dirs)
 
 		require.NotNil(t, result)

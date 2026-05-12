@@ -154,7 +154,11 @@ func handleRead(input hook.Input, blockedDirs []blockedDir) *hook.Result {
 	}
 
 	if input.CWD != "" && !isUnderDir(filePath, input.CWD) {
-		return askPreToolUse("reading files outside the project directory requires approval")
+		if marker.Exists(input.CWD, "allow-extread") {
+			return askPreToolUse("reading files outside the project directory requires approval")
+		}
+
+		return denyPreToolUse("reading files outside the project directory is not allowed")
 	}
 
 	return nil
