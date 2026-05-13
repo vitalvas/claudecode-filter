@@ -289,6 +289,24 @@ func TestHandleBash(t *testing.T) {
 		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
 	})
 
+	t.Run("allows git commit with path in message", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{
+			Command: `git commit -m "feat: add /oauth2/v1/groups endpoint"`,
+		})
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			CWD:           "/my/project",
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PermissionRequestOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
+	})
+
 	t.Run("does not allow partial prefix match", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "go testing"})
 		result := h(hook.Input{

@@ -200,6 +200,8 @@ func TestExtractBashPath(t *testing.T) {
 		{name: "no path", command: "go test ./...", want: ""},
 		{name: "heredoc with absolute path in body", command: "git commit --file=- <<'EOF'\nfeat: add /etc/config support\nEOF", want: ""},
 		{name: "heredoc with EOF marker", command: "git commit -m \"$(cat <<'EOF'\nsome message\nEOF\n)\"", want: ""},
+		{name: "path inside double quotes", command: "git commit -m \"feat: add /oauth2/v1/groups endpoint\"", want: ""},
+		{name: "path inside single quotes", command: "git commit -m 'feat: add /oauth2/v1/groups endpoint'", want: ""},
 		{name: "empty", command: "", want: ""},
 	}
 

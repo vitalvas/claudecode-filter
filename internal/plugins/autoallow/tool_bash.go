@@ -78,6 +78,7 @@ var allowedBashPrefixes = []string{
 	"go tool",
 	"go vet",
 	"gofmt",
+	"gofumpt",
 	"goimports",
 	"golangci-lint run",
 	"goreleaser",
@@ -172,8 +173,11 @@ func isProjectScopedCommand(command, cwd string) bool {
 	return false
 }
 
+var quotedStrings = regexp.MustCompile(`"[^"]*"|'[^']*'`)
+
 func hasAbsPathOutsideProject(command, cwd string) bool {
-	args := strings.Fields(command)
+	cmd := quotedStrings.ReplaceAllString(command, "")
+	args := strings.Fields(cmd)
 
 	for _, arg := range args[1:] {
 		if strings.HasPrefix(arg, "-") {
