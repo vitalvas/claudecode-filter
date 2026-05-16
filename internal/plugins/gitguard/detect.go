@@ -93,10 +93,24 @@ func detectDeniedCommitType(command string) (string, bool) {
 	return "", false
 }
 
+var (
+	commitMsgRe  = regexp.MustCompile(`-m\s+(?:"([^"]+)"|'([^']+)'|(\S+))`)
+	heredocMsgRe = regexp.MustCompile(`-m\s+"\$\(cat\s+<<-?\s*'?\w+'?\s*\n`)
+)
+
 func extractCommitMessage(command string) string {
+	// Try heredoc format first: -m "$(cat <<'EOF'\nmessage\nEOF\n)"
+	if loc := heredocMsgRe.FindStringIndex(command); loc != nil {
+		rest := command[loc[1]:]
+		if idx := strings.Index(rest, "\n"); idx > 0 {
+			return strings.TrimSpace(rest[:idx])
+		}
+
+		return strings.TrimSpace(rest)
+	}
+
 	// Match -m "msg" or -m 'msg' or -m msg
-	re := regexp.MustCompile(`-m\s+(?:"([^"]+)"|'([^']+)'|(\S+))`)
-	matches := re.FindStringSubmatch(command)
+	matches := commitMsgRe.FindStringSubmatch(command)
 	if matches == nil {
 		return ""
 	}

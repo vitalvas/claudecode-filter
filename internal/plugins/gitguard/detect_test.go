@@ -338,6 +338,18 @@ func TestDetectDeniedCommitType(t *testing.T) {
 		{
 			name:      "heredoc commit message",
 			command:   "git commit -m \"$(cat <<'EOF'\nstyle: format code\nEOF\n)\"",
+			wantType:  "style",
+			wantFound: true,
+		},
+		{
+			name:      "heredoc commit message with body",
+			command:   "git commit -m \"$(cat <<'EOF'\nrefactor: move routes\n\nMove setupRoutes for organization.\nEOF\n)\"",
+			wantType:  "refactor",
+			wantFound: true,
+		},
+		{
+			name:      "heredoc allowed type",
+			command:   "git commit -m \"$(cat <<'EOF'\nfeat: add endpoint\nEOF\n)\"",
 			wantFound: false,
 		},
 	}
