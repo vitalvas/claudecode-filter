@@ -59,9 +59,7 @@ func handleWriteGuard(input hook.Input) *hook.Result {
 	}
 
 	if input.ToolName == "Bash" {
-		if isBashWrite(input) {
-			return denyPreToolUse(fmt.Sprintf("writes are blocked: readonly marker is active (remove %s to unblock)", markerPath()))
-		}
+		return denyPreToolUse(fmt.Sprintf("bash is blocked: readonly marker is active (remove %s to unblock)", markerPath()))
 	}
 
 	return nil
@@ -127,15 +125,6 @@ func bashTargetsMarkerFile(command string) bool {
 	}
 
 	return false
-}
-
-func isBashWrite(input hook.Input) bool {
-	var bashInput hook.BashToolInput
-	if err := json.Unmarshal(input.ToolInput, &bashInput); err != nil {
-		return false
-	}
-
-	return detectWriteCommand(bashInput.Command)
 }
 
 func markerPath() string {

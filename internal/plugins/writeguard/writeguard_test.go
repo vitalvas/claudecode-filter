@@ -115,7 +115,7 @@ func TestWriteguard(t *testing.T) {
 		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
 	})
 
-	t.Run("allows Bash read with marker", func(t *testing.T) {
+	t.Run("blocks Bash read with marker", func(t *testing.T) {
 		gitRoot := setupGitRepo(t)
 		require.NoError(t, marker.Create(gitRoot, markerName, "1"))
 
@@ -127,7 +127,11 @@ func TestWriteguard(t *testing.T) {
 			ToolInput:     toolInput,
 		})
 
-		assert.Nil(t, result)
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
 	})
 
 	t.Run("allows Read with marker", func(t *testing.T) {
