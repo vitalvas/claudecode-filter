@@ -55,11 +55,11 @@ func handleWriteGuard(input hook.Input) *hook.Result {
 	}
 
 	if writeTools[input.ToolName] {
-		return denyPreToolUse(fmt.Sprintf("writes are blocked: readonly marker is active (remove %s to unblock)", markerPath()))
+		return denyPreToolUse("readonly sandbox mode")
 	}
 
 	if input.ToolName == "Bash" {
-		return denyPreToolUse(fmt.Sprintf("bash is blocked: readonly marker is active (remove %s to unblock)", markerPath()))
+		return denyPreToolUse("readonly sandbox mode")
 	}
 
 	return nil
@@ -125,10 +125,6 @@ func bashTargetsMarkerFile(command string) bool {
 	}
 
 	return false
-}
-
-func markerPath() string {
-	return fmt.Sprintf(".tmp/claudecode-filter-%s", markerName)
 }
 
 func denyPreToolUse(reason string) *hook.Result {
