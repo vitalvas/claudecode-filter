@@ -33,17 +33,17 @@ var allowedPatterns = []string{
 	"*.pub",
 }
 
-var allowedDirs []string
-
 type blockedDir struct {
 	path         string
 	allowProject bool
 }
 
-func init() {
+func allowedReadDirs() []string {
+	var dirs []string
+
 	home := os.Getenv("HOME")
 	if home != "" {
-		allowedDirs = append(allowedDirs,
+		dirs = append(dirs,
 			filepath.Join(home, ".cargo", "registry", "src"),
 			filepath.Join(home, ".claude"),
 			filepath.Join(home, ".rustup"),
@@ -53,23 +53,26 @@ func init() {
 	out, err := exec.Command("go", "env", "GOMODCACHE").Output()
 	if err == nil {
 		if dir := strings.TrimSpace(string(out)); dir != "" {
-			allowedDirs = append(allowedDirs, dir)
+			dirs = append(dirs, dir)
 		}
 	}
 
 	uid := fmt.Sprintf("%d", os.Getuid())
-	allowedDirs = append(allowedDirs, filepath.Join("/private/tmp", fmt.Sprintf("claude-%s", uid)))
+	dirs = append(dirs, filepath.Join("/private/tmp", fmt.Sprintf("claude-%s", uid)))
+
+	return dirs
 }
 
 // New creates the readguard middleware.
 func New() hook.Middleware {
 	blockedDirs := blockedDirectories()
+	allowedDirs := allowedReadDirs()
 
 	return func(next hook.Handler) hook.Handler {
 		return func(input hook.Input) *hook.Result {
 			if input.ToolName == "Read" {
 				if input.HookEventName == hook.EventPreToolUse || input.HookEventName == hook.EventPermissionRequest {
-					if result := handleRead(input, blockedDirs); result != nil {
+					if result := handleRead(input, blockedDirs, allowedDirs); result != nil {
 						return result
 					}
 				}
@@ -102,7 +105,7 @@ func blockedDirectories() []blockedDir {
 	return dirs
 }
 
-func handleRead(input hook.Input, blockedDirs []blockedDir) *hook.Result {
+func handleRead(input hook.Input, blockedDirs []blockedDir, allowedDirs []string) *hook.Result {
 	var readInput hook.ReadToolInput
 	if err := json.Unmarshal(input.ToolInput, &readInput); err != nil {
 		return nil

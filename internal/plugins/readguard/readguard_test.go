@@ -221,7 +221,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 	t.Run("blocks file under blocked dir", func(t *testing.T) {
 		dirs := []blockedDir{{path: "/blocked/dir"}}
 		input := makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/blocked/dir/some/file.go"})
-		result := handleRead(input, dirs)
+		result := handleRead(input, dirs, nil)
 
 		require.NotNil(t, result)
 
@@ -236,7 +236,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
 			FilePath: "/project/src/file.go",
 		}, "/project")
-		result := handleRead(input, dirs)
+		result := handleRead(input, dirs, nil)
 
 		assert.Nil(t, result)
 	})
@@ -246,7 +246,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
 			FilePath: "/gopath/src/github.com/other/repo/main.go",
 		}, "/gopath/src/github.com/myorg/myproject")
-		result := handleRead(input, dirs)
+		result := handleRead(input, dirs, nil)
 
 		require.NotNil(t, result)
 
@@ -264,7 +264,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
 			FilePath: "/gopath/src/github.com/other/repo/main.go",
 		}, cwd)
-		result := handleRead(input, dirs)
+		result := handleRead(input, dirs, nil)
 
 		require.NotNil(t, result)
 
@@ -278,7 +278,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
 			FilePath: "/gopath/src/github.com/myorg/myproject/internal/pkg/file.go",
 		}, "/gopath/src/github.com/myorg/myproject")
-		result := handleRead(input, dirs)
+		result := handleRead(input, dirs, nil)
 
 		assert.Nil(t, result)
 	})
@@ -288,7 +288,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
 			FilePath: "/other/project/file.go",
 		}, "/my/project")
-		result := handleRead(input, dirs)
+		result := handleRead(input, dirs, nil)
 
 		require.NotNil(t, result)
 
@@ -306,7 +306,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
 			FilePath: "/other/project/file.go",
 		}, cwd)
-		result := handleRead(input, dirs)
+		result := handleRead(input, dirs, nil)
 
 		require.NotNil(t, result)
 
@@ -320,7 +320,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
 			FilePath: "/my/project/src/main.go",
 		}, "/my/project")
-		result := handleRead(input, dirs)
+		result := handleRead(input, dirs, nil)
 
 		assert.Nil(t, result)
 	})

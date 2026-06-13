@@ -14,14 +14,14 @@ import (
 
 const markerName = "allow-rootread"
 
-var allowedRoots []string
-
 var allowedExceptions = []string{}
 
-func init() {
+func allowedSandboxRoots() []string {
+	var roots []string
+
 	home := os.Getenv("HOME")
 	if home != "" {
-		allowedRoots = append(allowedRoots,
+		roots = append(roots,
 			filepath.Join(home, ".cargo", "registry", "src"),
 			filepath.Join(home, ".claude"),
 			filepath.Join(home, ".rustup"),
@@ -30,16 +30,20 @@ func init() {
 	}
 
 	uid := fmt.Sprintf("%d", os.Getuid())
-	allowedRoots = append(allowedRoots, filepath.Join("/private/tmp", fmt.Sprintf("claude-%s", uid)))
+	roots = append(roots, filepath.Join("/private/tmp", fmt.Sprintf("claude-%s", uid)))
+
+	return roots
 }
 
 // New creates the sandbox middleware.
 func New() hook.Middleware {
+	allowedRoots := allowedSandboxRoots()
+
 	return func(next hook.Handler) hook.Handler {
 		return func(input hook.Input) *hook.Result {
 			switch input.HookEventName {
 			case hook.EventPreToolUse:
-				if result := handlePreToolUse(input); result != nil {
+				if result := handlePreToolUse(input, allowedRoots); result != nil {
 					return result
 				}
 			case hook.EventUserPromptSubmit:
@@ -51,13 +55,13 @@ func New() hook.Middleware {
 	}
 }
 
-func handlePreToolUse(input hook.Input) *hook.Result {
+func handlePreToolUse(input hook.Input, allowedRoots []string) *hook.Result {
 	path := extractPath(input)
 	if path == "" {
 		return nil
 	}
 
-	if isAllowedPath(path) {
+	if isAllowedPath(path, allowedRoots) {
 		return nil
 	}
 
@@ -130,7 +134,7 @@ func isTmpPath(path string) bool {
 		strings.HasPrefix(path, "/private/tmp/") || path == "/private/tmp"
 }
 
-func isAllowedPath(path string) bool {
+func isAllowedPath(path string, allowedRoots []string) bool {
 	for _, root := range allowedRoots {
 		if isUnderDir(path, root) || path == root {
 			return true
