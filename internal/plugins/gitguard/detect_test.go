@@ -170,11 +170,6 @@ func TestDetectBlockedOps(t *testing.T) {
 			want:    nil,
 		},
 		{
-			name:    "allowed: branch",
-			command: "git branch -D feature",
-			want:    nil,
-		},
-		{
 			name:    "allowed: clean",
 			command: "git clean -fd",
 			want:    nil,
@@ -212,6 +207,96 @@ func TestDetectBlockedOps(t *testing.T) {
 		{
 			name:    "stash pop is not blocked",
 			command: "git stash pop",
+			want:    nil,
+		},
+		{
+			name:    "branch create with name",
+			command: "git branch feature",
+			want:    []string{"branch"},
+		},
+		{
+			name:    "branch create from ref",
+			command: "git branch feature main",
+			want:    []string{"branch"},
+		},
+		{
+			name:    "branch copy",
+			command: "git branch -c old new",
+			want:    []string{"branch"},
+		},
+		{
+			name:    "branch rename",
+			command: "git branch -m old new",
+			want:    []string{"branch"},
+		},
+		{
+			name:    "switch -c creates branch",
+			command: "git switch -c feature",
+			want:    []string{"branch"},
+		},
+		{
+			name:    "switch --create",
+			command: "git switch --create feature",
+			want:    []string{"branch"},
+		},
+		{
+			name:    "checkout -b creates branch",
+			command: "git checkout -b feature",
+			want:    []string{"branch"},
+		},
+		{
+			name:    "checkout --orphan",
+			command: "git checkout --orphan gh-pages",
+			want:    []string{"branch"},
+		},
+		{
+			name:    "worktree add",
+			command: "git worktree add ../wt feature",
+			want:    []string{"branch"},
+		},
+		{
+			name:    "allowed: branch list",
+			command: "git branch",
+			want:    nil,
+		},
+		{
+			name:    "allowed: branch -a",
+			command: "git branch -a",
+			want:    nil,
+		},
+		{
+			name:    "allowed: branch verbose",
+			command: "git branch -v",
+			want:    nil,
+		},
+		{
+			name:    "allowed: branch show-current",
+			command: "git branch --show-current",
+			want:    nil,
+		},
+		{
+			name:    "allowed: branch delete with name",
+			command: "git branch -d feature",
+			want:    nil,
+		},
+		{
+			name:    "allowed: branch --delete force with name",
+			command: "git branch -D feature",
+			want:    nil,
+		},
+		{
+			name:    "allowed: switch existing",
+			command: "git switch main",
+			want:    nil,
+		},
+		{
+			name:    "allowed: checkout existing branch",
+			command: "git checkout main",
+			want:    nil,
+		},
+		{
+			name:    "allowed: worktree list",
+			command: "git worktree list",
 			want:    nil,
 		},
 	}
