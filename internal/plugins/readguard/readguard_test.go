@@ -2,6 +2,7 @@ package readguard
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -341,6 +342,102 @@ func makeInputWithCWD(toolName, event string, toolInput any, cwd string) hook.In
 	input.CWD = cwd
 
 	return input
+}
+
+func TestHandleBashCd(t *testing.T) {
+	h := hook.BuildChain(New())
+	project := t.TempDir()
+	outside := t.TempDir()
+
+	t.Run("denies cd outside project", func(t *testing.T) {
+		input := makeInputWithCWD("Bash", hook.EventPreToolUse,
+			hook.BashToolInput{Command: fmt.Sprintf("cd %s && git diff", outside)}, project)
+
+		result := h(input)
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "outside project")
+	})
+
+	t.Run("allows cd inside project", func(t *testing.T) {
+		input := makeInputWithCWD("Bash", hook.EventPreToolUse,
+			hook.BashToolInput{Command: fmt.Sprintf("cd %s && go test ./...", filepath.Join(project, "internal"))}, project)
+
+		assert.Nil(t, h(input))
+	})
+
+	t.Run("allows command without cd", func(t *testing.T) {
+		input := makeInputWithCWD("Bash", hook.EventPreToolUse,
+			hook.BashToolInput{Command: "go test ./..."}, project)
+
+		assert.Nil(t, h(input))
+	})
+
+	t.Run("allows relative cd", func(t *testing.T) {
+		input := makeInputWithCWD("Bash", hook.EventPreToolUse,
+			hook.BashToolInput{Command: "cd internal && go test ./..."}, project)
+
+		assert.Nil(t, h(input))
+	})
+
+	t.Run("asks cd outside project with marker", func(t *testing.T) {
+		markerRoot := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(markerRoot, ".git"), 0o755))
+		require.NoError(t, marker.Create(markerRoot, "allow-extread", "1"))
+
+		input := makeInputWithCWD("Bash", hook.EventPreToolUse,
+			hook.BashToolInput{Command: fmt.Sprintf("cd %s && git diff", outside)}, markerRoot)
+
+		result := h(input)
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAsk, output.HookSpecificOutput.PermissionDecision)
+	})
+
+	t.Run("denies on PermissionRequest event", func(t *testing.T) {
+		input := makeInputWithCWD("Bash", hook.EventPermissionRequest,
+			hook.BashToolInput{Command: fmt.Sprintf("cd %s && git diff", outside)}, project)
+
+		result := h(input)
+		require.NotNil(t, result)
+
+		var output hook.PermissionRequestOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.Decision.Behavior)
+	})
+
+	t.Run("passes when CWD empty", func(t *testing.T) {
+		input := makeInput("Bash", hook.EventPreToolUse,
+			hook.BashToolInput{Command: fmt.Sprintf("cd %s && git diff", outside)})
+
+		assert.Nil(t, h(input))
+	})
+}
+
+func TestCdTargets(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		want    []string
+	}{
+		{name: "no cd", command: "go test ./...", want: nil},
+		{name: "single cd", command: "cd /tmp/foo && ls", want: []string{"/tmp/foo"}},
+		{name: "cd with semicolon", command: "cd /tmp/foo; ls", want: []string{"/tmp/foo"}},
+		{name: "quoted target", command: `cd "/tmp/foo bar" && ls`, want: []string{"/tmp/foo"}},
+		{name: "multiple cd", command: "cd /a && echo x | cd /b", want: []string{"/a", "/b"}},
+		{name: "cd without arg", command: "cd && ls", want: nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, cdTargets(tt.command))
+		})
+	}
 }
 
 func TestExpandHome(t *testing.T) {

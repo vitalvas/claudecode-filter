@@ -70,9 +70,15 @@ func New() hook.Middleware {
 
 	return func(next hook.Handler) hook.Handler {
 		return func(input hook.Input) *hook.Result {
-			if input.ToolName == "Read" {
-				if input.HookEventName == hook.EventPreToolUse || input.HookEventName == hook.EventPermissionRequest {
+			if input.HookEventName == hook.EventPreToolUse || input.HookEventName == hook.EventPermissionRequest {
+				if input.ToolName == "Read" {
 					if result := handleRead(input, blockedDirs, allowedDirs); result != nil {
+						return result
+					}
+				}
+
+				if input.ToolName == "Bash" {
+					if result := handleBashCd(input); result != nil {
 						return result
 					}
 				}
@@ -169,6 +175,57 @@ func handleRead(input hook.Input, blockedDirs []blockedDir, allowedDirs []string
 	}
 
 	return nil
+}
+
+// handleBashCd gates Bash commands that cd into a directory outside the
+// current project. Such a command would otherwise execute against another
+// repository (e.g. an agent worktree) without going through the read guard.
+func handleBashCd(input hook.Input) *hook.Result {
+	if input.CWD == "" {
+		return nil
+	}
+
+	var bashInput hook.BashToolInput
+	if err := json.Unmarshal(input.ToolInput, &bashInput); err != nil {
+		return nil
+	}
+
+	for _, target := range cdTargets(bashInput.Command) {
+		if !filepath.IsAbs(target) {
+			continue
+		}
+
+		if isUnderDir(target, input.CWD) || target == input.CWD {
+			continue
+		}
+
+		if marker.Exists(input.CWD, "allow-extread") {
+			return askResult(input.HookEventName, fmt.Sprintf("changing directory to %s outside project requires approval", target))
+		}
+
+		return denyResult(input.HookEventName, fmt.Sprintf("changing directory to %s outside project is not allowed", target))
+	}
+
+	return nil
+}
+
+// cdTargets returns the directory arguments of every `cd` invocation in a
+// command, splitting on the common shell separators that chain commands.
+func cdTargets(command string) []string {
+	var targets []string
+
+	segments := strings.FieldsFunc(command, func(r rune) bool {
+		return r == ';' || r == '&' || r == '|' || r == '\n'
+	})
+
+	for _, segment := range segments {
+		fields := strings.Fields(segment)
+		if len(fields) >= 2 && fields[0] == "cd" {
+			targets = append(targets, expandHome(strings.Trim(fields[1], `"'`)))
+		}
+	}
+
+	return targets
 }
 
 func isAllowed(base string) bool {
