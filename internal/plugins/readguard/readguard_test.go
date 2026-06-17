@@ -417,9 +417,46 @@ func TestHandleBashCd(t *testing.T) {
 
 		assert.Nil(t, h(input))
 	})
+
+	t.Run("denies git -C outside project", func(t *testing.T) {
+		input := makeInputWithCWD("Bash", hook.EventPreToolUse,
+			hook.BashToolInput{Command: fmt.Sprintf("git -C %s commit -m x", outside)}, project)
+
+		result := h(input)
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "outside project")
+	})
+
+	t.Run("allows git -C project root from subdir", func(t *testing.T) {
+		repoRoot := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(repoRoot, ".git"), 0o755))
+		subdir := filepath.Join(repoRoot, "internal")
+		require.NoError(t, os.Mkdir(subdir, 0o755))
+
+		input := makeInputWithCWD("Bash", hook.EventPreToolUse,
+			hook.BashToolInput{Command: fmt.Sprintf("git -C %s status", repoRoot)}, subdir)
+
+		assert.Nil(t, h(input))
+	})
+
+	t.Run("allows git -C project subdir", func(t *testing.T) {
+		repoRoot := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(repoRoot, ".git"), 0o755))
+		subdir := filepath.Join(repoRoot, "internal")
+		require.NoError(t, os.Mkdir(subdir, 0o755))
+
+		input := makeInputWithCWD("Bash", hook.EventPreToolUse,
+			hook.BashToolInput{Command: fmt.Sprintf("git -C %s status", subdir)}, repoRoot)
+
+		assert.Nil(t, h(input))
+	})
 }
 
-func TestCdTargets(t *testing.T) {
+func TestExternalDirTargets(t *testing.T) {
 	tests := []struct {
 		name    string
 		command string
@@ -431,11 +468,17 @@ func TestCdTargets(t *testing.T) {
 		{name: "quoted target", command: `cd "/tmp/foo bar" && ls`, want: []string{"/tmp/foo"}},
 		{name: "multiple cd", command: "cd /a && echo x | cd /b", want: []string{"/a", "/b"}},
 		{name: "cd without arg", command: "cd && ls", want: nil},
+		{name: "git -C path", command: "git -C /tmp/repo status", want: []string{"/tmp/repo"}},
+		{name: "git -C with commit", command: "git -C /tmp/repo commit -m x", want: []string{"/tmp/repo"}},
+		{name: "git --git-dir flag", command: "git --git-dir=/tmp/repo/.git status", want: []string{"/tmp/repo/.git"}},
+		{name: "git --work-tree flag", command: "git --work-tree=/tmp/repo status", want: []string{"/tmp/repo"}},
+		{name: "git -C only on git", command: "make -C /tmp/repo build", want: nil},
+		{name: "git -C without arg", command: "git -C", want: nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, cdTargets(tt.command))
+			assert.Equal(t, tt.want, externalDirTargets(tt.command))
 		})
 	}
 }

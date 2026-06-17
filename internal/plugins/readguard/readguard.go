@@ -177,8 +177,9 @@ func handleRead(input hook.Input, blockedDirs []blockedDir, allowedDirs []string
 	return nil
 }
 
-// handleBashCd gates Bash commands that cd into a directory outside the
-// current project. Such a command would otherwise execute against another
+// handleBashCd gates Bash commands that operate on a directory outside the
+// current project, either by `cd` or by `git -C` / `git --git-dir=` /
+// `git --work-tree=`. Such a command would otherwise execute against another
 // repository (e.g. an agent worktree) without going through the read guard.
 func handleBashCd(input hook.Input) *hook.Result {
 	if input.CWD == "" {
@@ -190,28 +191,34 @@ func handleBashCd(input hook.Input) *hook.Result {
 		return nil
 	}
 
-	for _, target := range cdTargets(bashInput.Command) {
+	projectRoot := input.CWD
+	if root := gitRoot(input.CWD); root != "" {
+		projectRoot = root
+	}
+
+	for _, target := range externalDirTargets(bashInput.Command) {
 		if !filepath.IsAbs(target) {
 			continue
 		}
 
-		if isUnderDir(target, input.CWD) || target == input.CWD {
+		if isUnderDir(target, projectRoot) || target == projectRoot {
 			continue
 		}
 
 		if marker.Exists(input.CWD, "allow-extread") {
-			return askResult(input.HookEventName, fmt.Sprintf("changing directory to %s outside project requires approval", target))
+			return askResult(input.HookEventName, fmt.Sprintf("accessing %s outside project requires approval", target))
 		}
 
-		return denyResult(input.HookEventName, fmt.Sprintf("changing directory to %s outside project is not allowed", target))
+		return denyResult(input.HookEventName, fmt.Sprintf("accessing %s outside project is not allowed", target))
 	}
 
 	return nil
 }
 
-// cdTargets returns the directory arguments of every `cd` invocation in a
-// command, splitting on the common shell separators that chain commands.
-func cdTargets(command string) []string {
+// externalDirTargets returns the directory arguments of every `cd` invocation
+// and every `git -C` / `git --git-dir=` / `git --work-tree=` flag in a command,
+// splitting on the common shell separators that chain commands.
+func externalDirTargets(command string) []string {
 	var targets []string
 
 	segments := strings.FieldsFunc(command, func(r rune) bool {
@@ -220,12 +227,58 @@ func cdTargets(command string) []string {
 
 	for _, segment := range segments {
 		fields := strings.Fields(segment)
+
+		targets = append(targets, gitDirTargets(fields)...)
+
 		if len(fields) >= 2 && fields[0] == "cd" {
 			targets = append(targets, expandHome(strings.Trim(fields[1], `"'`)))
 		}
 	}
 
 	return targets
+}
+
+// gitDirTargets extracts directory arguments from a git command's path flags:
+// `git -C <path>`, `git --git-dir=<path>`, and `git --work-tree=<path>`.
+func gitDirTargets(fields []string) []string {
+	if len(fields) == 0 || fields[0] != "git" {
+		return nil
+	}
+
+	var targets []string
+
+	for i := 1; i < len(fields); i++ {
+		field := fields[i]
+
+		switch {
+		case field == "-C" && i+1 < len(fields):
+			targets = append(targets, expandHome(strings.Trim(fields[i+1], `"'`)))
+			i++
+		case strings.HasPrefix(field, "--git-dir="):
+			targets = append(targets, expandHome(strings.Trim(strings.TrimPrefix(field, "--git-dir="), `"'`)))
+		case strings.HasPrefix(field, "--work-tree="):
+			targets = append(targets, expandHome(strings.Trim(strings.TrimPrefix(field, "--work-tree="), `"'`)))
+		}
+	}
+
+	return targets
+}
+
+// gitRoot walks up from dir until it finds a directory containing a .git
+// entry and returns that directory, or "" if none is found.
+func gitRoot(dir string) string {
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return dir
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+
+		dir = parent
+	}
 }
 
 func isAllowed(base string) bool {
