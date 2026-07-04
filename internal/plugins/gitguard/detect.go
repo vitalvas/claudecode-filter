@@ -17,6 +17,8 @@ var blockedOps = []string{
 
 var commandSplitter = regexp.MustCompile(`\s*(?:&&|\|\||;)\s*`)
 
+var quotedStrings = regexp.MustCompile(`"[^"]*"|'[^']*'`)
+
 func detectBlockedOps(command string) []string {
 	segments := commandSplitter.Split(command, -1)
 
@@ -36,6 +38,37 @@ func detectBlockedOps(command string) []string {
 	}
 
 	return found
+}
+
+func detectNoVerify(command string) bool {
+	segments := commandSplitter.Split(command, -1)
+
+	for _, seg := range segments {
+		if segmentHasGitNoVerify(seg) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func segmentHasGitNoVerify(segment string) bool {
+	segment = quotedStrings.ReplaceAllString(segment, "")
+	words := strings.Fields(strings.TrimSpace(segment))
+
+	for i, w := range words {
+		if w != "git" {
+			continue
+		}
+
+		for _, arg := range words[i+1:] {
+			if arg == "--no-verify" {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // branchCreateFlags are flags on git subcommands that create or rename a branch.

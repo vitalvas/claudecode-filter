@@ -309,6 +309,61 @@ func TestDetectBlockedOps(t *testing.T) {
 	}
 }
 
+func TestDetectNoVerify(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		want    bool
+	}{
+		{
+			name:    "commit with no verify",
+			command: "git commit --no-verify -m 'test'",
+			want:    true,
+		},
+		{
+			name:    "commit with no verify after message",
+			command: "git commit -m 'test' --no-verify",
+			want:    true,
+		},
+		{
+			name:    "push with no verify",
+			command: "git push --no-verify origin main",
+			want:    true,
+		},
+		{
+			name:    "git with global flag",
+			command: "git -C /some/path commit --no-verify -m 'test'",
+			want:    true,
+		},
+		{
+			name:    "chained git command",
+			command: "go test ./... && git commit --no-verify -m 'test'",
+			want:    true,
+		},
+		{
+			name:    "quoted mention in commit message",
+			command: "git commit -m 'document --no-verify behavior'",
+			want:    false,
+		},
+		{
+			name:    "not git command",
+			command: "go test --no-verify ./...",
+			want:    false,
+		},
+		{
+			name:    "empty command",
+			command: "",
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, detectNoVerify(tt.command))
+		})
+	}
+}
+
 func TestDetectDeniedCommitType(t *testing.T) {
 	tests := []struct {
 		name      string
