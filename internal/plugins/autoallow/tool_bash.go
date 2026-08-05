@@ -98,6 +98,7 @@ var allowedBashPrefixes = []string{
 	"ping",
 	"ps",
 	"pwd",
+	"python3",
 	"rg",
 	"scp",
 	"sed",
