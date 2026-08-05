@@ -42,6 +42,21 @@ func TestHandleBash(t *testing.T) {
 		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
 	})
 
+	t.Run("allows container command", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "container images"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PermissionRequestOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
+	})
+
 	t.Run("allows yake tests", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "yake tests"})
 		result := h(hook.Input{
