@@ -36,6 +36,7 @@ var allowedPatterns = []string{
 type blockedDir struct {
 	path         string
 	allowProject bool
+	beforeAllow  bool
 }
 
 func allowedReadDirs() []string {
@@ -93,6 +94,8 @@ func blockedDirectories() []blockedDir {
 	home := os.Getenv("HOME")
 
 	dirs := []blockedDir{
+		{path: filepath.Join(home, ".claude", "plans"), beforeAllow: true},
+		{path: filepath.Join(home, ".claude", "projects"), beforeAllow: true},
 		{path: filepath.Join(home, ".ssh")},
 	}
 
@@ -119,6 +122,13 @@ func handleRead(input hook.Input, blockedDirs []blockedDir, allowedDirs []string
 
 	filePath := expandHome(readInput.FilePath)
 	base := filepath.Base(filePath)
+
+	for _, dir := range blockedDirs {
+		if dir.beforeAllow && isUnderDir(filePath, dir.path) {
+			reason := fmt.Sprintf("reading files under %s is not allowed", dir.path)
+			return denyResult(input.HookEventName, withAgentsHint(reason, input.CWD))
+		}
+	}
 
 	if isAllowed(base) {
 		return nil
@@ -294,6 +304,22 @@ func isAllowed(base string) bool {
 	}
 
 	return false
+}
+
+// withAgentsHint appends the contents of the project's AGENTS.md to the deny
+// reason, but only when that file exists in the project root (cwd). It is used
+// to steer a trapped agent back to the project's own guidance.
+func withAgentsHint(reason, cwd string) string {
+	if cwd == "" {
+		return reason
+	}
+
+	data, err := os.ReadFile(filepath.Join(cwd, "AGENTS.md"))
+	if err != nil {
+		return reason
+	}
+
+	return fmt.Sprintf("%s\n\n%s", reason, data)
 }
 
 func expandHome(path string) string {

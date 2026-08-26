@@ -73,6 +73,48 @@ func TestReadguard(t *testing.T) {
 			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: "/tmp/.ssh/config"}),
 			blocked: false,
 		},
+		// Claude plans directory
+		{
+			name:    "blocks $HOME/.claude/plans",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".claude", "plans")}),
+			blocked: true,
+		},
+		{
+			name:    "blocks file under $HOME/.claude/plans",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".claude", "plans", "work.md")}),
+			blocked: true,
+		},
+		{
+			name:    "blocks allowed pattern under $HOME/.claude/plans",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".claude", "plans", "key.pub")}),
+			blocked: true,
+		},
+		{
+			name:    "allows sibling of $HOME/.claude/plans",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".claude", "plans-backup", "work.md")}),
+			blocked: false,
+		},
+		// Claude projects directory
+		{
+			name:    "blocks $HOME/.claude/projects",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".claude", "projects")}),
+			blocked: true,
+		},
+		{
+			name:    "blocks file under $HOME/.claude/projects",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".claude", "projects", "session", "transcript.jsonl")}),
+			blocked: true,
+		},
+		{
+			name:    "blocks allowed pattern under $HOME/.claude/projects",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".claude", "projects", "key.pub")}),
+			blocked: true,
+		},
+		{
+			name:    "allows sibling of $HOME/.claude/projects",
+			input:   makeInput("Read", hook.EventPreToolUse, hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".claude", "projects-backup", "work.md")}),
+			blocked: false,
+		},
 		// .env files
 		{
 			name:    "blocks .env",
@@ -182,6 +224,30 @@ func blockedDirPaths(dirs []blockedDir) []string {
 
 func TestBlockedDirectories(t *testing.T) {
 	home := os.Getenv("HOME")
+
+	t.Run("includes $HOME/.claude/plans always", func(t *testing.T) {
+		dirs := blockedDirectories()
+		paths := blockedDirPaths(dirs)
+		assert.Contains(t, paths, filepath.Join(home, ".claude", "plans"))
+
+		for _, dir := range dirs {
+			if dir.path == filepath.Join(home, ".claude", "plans") {
+				assert.True(t, dir.beforeAllow)
+			}
+		}
+	})
+
+	t.Run("includes $HOME/.claude/projects always", func(t *testing.T) {
+		dirs := blockedDirectories()
+		paths := blockedDirPaths(dirs)
+		assert.Contains(t, paths, filepath.Join(home, ".claude", "projects"))
+
+		for _, dir := range dirs {
+			if dir.path == filepath.Join(home, ".claude", "projects") {
+				assert.True(t, dir.beforeAllow)
+			}
+		}
+	})
 
 	t.Run("includes $HOME/.ssh always", func(t *testing.T) {
 		paths := blockedDirPaths(blockedDirectories())
@@ -504,4 +570,39 @@ func TestExpandHome(t *testing.T) {
 			assert.Equal(t, tt.want, expandHome(tt.path))
 		})
 	}
+}
+
+func TestWithAgentsHint(t *testing.T) {
+	h := hook.BuildChain(New())
+	homeDir := os.Getenv("HOME")
+
+	t.Run("appends AGENTS.md contents when it exists in cwd", func(t *testing.T) {
+		cwd := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(cwd, "AGENTS.md"), []byte("project rules here"), 0o644))
+
+		input := makeInputWithCWD("Read", hook.EventPreToolUse,
+			hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".claude", "projects", "session", "t.jsonl")}, cwd)
+
+		result := h(input)
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "project rules here")
+	})
+
+	t.Run("omits hint when AGENTS.md absent in cwd", func(t *testing.T) {
+		cwd := t.TempDir()
+
+		input := makeInputWithCWD("Read", hook.EventPreToolUse,
+			hook.ReadToolInput{FilePath: filepath.Join(homeDir, ".claude", "projects", "session", "t.jsonl")}, cwd)
+
+		result := h(input)
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.NotContains(t, output.HookSpecificOutput.PermissionDecisionReason, "AGENTS.md")
+	})
 }

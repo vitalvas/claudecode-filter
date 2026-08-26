@@ -3,6 +3,7 @@ package writeguard
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -42,6 +43,10 @@ func handleWriteGuard(input hook.Input) *hook.Result {
 		return result
 	}
 
+	if result := blockProtectedDirWrite(input); result != nil {
+		return result
+	}
+
 	if result := blockMarkerFileWrite(input); result != nil {
 		return result
 	}
@@ -63,6 +68,87 @@ func handleWriteGuard(input hook.Input) *hook.Result {
 	}
 
 	return nil
+}
+
+func blockProtectedDirWrite(input hook.Input) *hook.Result {
+	if !writeTools[input.ToolName] {
+		return nil
+	}
+
+	var ti struct {
+		FilePath     string `json:"file_path"`
+		NotebookPath string `json:"notebook_path"`
+	}
+
+	if err := json.Unmarshal(input.ToolInput, &ti); err != nil {
+		return nil
+	}
+
+	filePath := ti.FilePath
+	if filePath == "" {
+		filePath = ti.NotebookPath
+	}
+	filePath = resolvePath(filePath, input.CWD)
+
+	home := os.Getenv("HOME")
+	if home == "" {
+		return nil
+	}
+
+	protectedDirs := []string{
+		filepath.Join(home, ".claude", "plans"),
+		filepath.Join(home, ".claude", "projects"),
+	}
+
+	for _, protectedDir := range protectedDirs {
+		if isUnderDir(filePath, protectedDir) {
+			reason := fmt.Sprintf("modifying files under %s is not allowed", protectedDir)
+			return denyPreToolUse(withAgentsHint(reason, input.CWD))
+		}
+	}
+
+	return nil
+}
+
+// withAgentsHint appends the contents of the project's AGENTS.md to the deny
+// reason, but only when that file exists in the project root (cwd). It is used
+// to steer a trapped agent back to the project's own guidance.
+func withAgentsHint(reason, cwd string) string {
+	if cwd == "" {
+		return reason
+	}
+
+	data, err := os.ReadFile(filepath.Join(cwd, "AGENTS.md"))
+	if err != nil {
+		return reason
+	}
+
+	return fmt.Sprintf("%s\n\n%s", reason, data)
+}
+
+func resolvePath(path, cwd string) string {
+	if strings.HasPrefix(path, "~/") {
+		if home := os.Getenv("HOME"); home != "" {
+			path = filepath.Join(home, path[2:])
+		}
+	}
+
+	if !filepath.IsAbs(path) && cwd != "" {
+		path = filepath.Join(cwd, path)
+	}
+
+	return filepath.Clean(path)
+}
+
+func isUnderDir(path, dir string) bool {
+	rel, err := filepath.Rel(dir, path)
+	if err != nil {
+		return false
+	}
+
+	parentPrefix := fmt.Sprintf("..%c", filepath.Separator)
+
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, parentPrefix))
 }
 
 func blockProtectedFileWrite(input hook.Input) *hook.Result {
