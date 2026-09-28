@@ -210,51 +210,6 @@ func TestDetectBlockedOps(t *testing.T) {
 			want:    nil,
 		},
 		{
-			name:    "branch create with name",
-			command: "git branch feature",
-			want:    []string{"branch"},
-		},
-		{
-			name:    "branch create from ref",
-			command: "git branch feature main",
-			want:    []string{"branch"},
-		},
-		{
-			name:    "branch copy",
-			command: "git branch -c old new",
-			want:    []string{"branch"},
-		},
-		{
-			name:    "branch rename",
-			command: "git branch -m old new",
-			want:    []string{"branch"},
-		},
-		{
-			name:    "switch -c creates branch",
-			command: "git switch -c feature",
-			want:    []string{"branch"},
-		},
-		{
-			name:    "switch --create",
-			command: "git switch --create feature",
-			want:    []string{"branch"},
-		},
-		{
-			name:    "checkout -b creates branch",
-			command: "git checkout -b feature",
-			want:    []string{"branch"},
-		},
-		{
-			name:    "checkout --orphan",
-			command: "git checkout --orphan gh-pages",
-			want:    []string{"branch"},
-		},
-		{
-			name:    "worktree add",
-			command: "git worktree add ../wt feature",
-			want:    []string{"branch"},
-		},
-		{
 			name:    "allowed: branch list",
 			command: "git branch",
 			want:    nil,
@@ -360,6 +315,51 @@ func TestDetectNoVerify(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, detectNoVerify(tt.command))
+		})
+	}
+}
+
+func TestDetectPolicyBlocked(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		want    bool
+	}{
+		{name: "create branch", command: "git branch feature", want: true},
+		{name: "create branch from ref", command: "git branch feature main", want: true},
+		{name: "branch copy", command: "git branch -c old new", want: true},
+		{name: "branch rename", command: "git branch -m old new", want: true},
+		{name: "list branches", command: "git branch", want: true},
+		{name: "delete branch", command: "git branch -d feature", want: true},
+		{name: "branch with global flag", command: "git -C /some/path branch feature", want: true},
+		{name: "chained git branch", command: "go test ./... && git branch feature", want: true},
+		{name: "checkout -b creates branch", command: "git checkout -b feature", want: true},
+		{name: "checkout --orphan", command: "git checkout --orphan gh-pages", want: true},
+		{name: "switch -c creates branch", command: "git switch -c feature", want: true},
+		{name: "switch --create", command: "git switch --create feature", want: true},
+		{name: "worktree add creates branch", command: "git worktree add ../wt feature", want: true},
+		{name: "checkout existing branch", command: "git checkout main", want: true},
+		{name: "checkout file", command: "git checkout -- file.go", want: true},
+		{name: "restore file", command: "git restore file.go", want: true},
+		{name: "restore staged", command: "git restore --staged file.go", want: true},
+		{name: "reset hard", command: "git reset --hard", want: true},
+		{name: "reset hard to ref", command: "git reset --hard HEAD~1", want: true},
+		{name: "clean force", command: "git clean -fd", want: true},
+		{name: "clean dry run", command: "git clean -n", want: true},
+		{name: "switch existing branch", command: "git switch main", want: false},
+		{name: "worktree list", command: "git worktree list", want: false},
+		{name: "reset mixed unstages", command: "git reset HEAD file.go", want: false},
+		{name: "reset soft", command: "git reset --soft HEAD~1", want: false},
+		{name: "stash is allowed", command: "git stash", want: false},
+		{name: "stash pop is allowed", command: "git stash pop", want: false},
+		{name: "quoted mention", command: "git commit -m 'add branch docs'", want: false},
+		{name: "not git command", command: "go branch ./...", want: false},
+		{name: "empty command", command: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, detectPolicyBlocked(tt.command))
 		})
 	}
 }

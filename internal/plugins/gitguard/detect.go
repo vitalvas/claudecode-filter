@@ -30,14 +30,55 @@ func detectBlockedOps(command string) []string {
 			found = append(found, op)
 			seen[op] = true
 		}
-
-		if detectBranchCreate(seg) && !seen["branch"] {
-			found = append(found, "branch")
-			seen["branch"] = true
-		}
 	}
 
 	return found
+}
+
+// detectPolicyBlocked returns true when any segment invokes a permanently
+// blocked subcommand: branch management (branch, checkout) or discarding
+// uncommitted changes (restore, reset --hard, clean). Branch creation via
+// switch -c or worktree add is also blocked. `git stash` is the only allowed
+// way to discard worktree changes. No marker escape.
+func detectPolicyBlocked(command string) bool {
+	for _, seg := range commandSplitter.Split(command, -1) {
+		if detectBranchCreate(seg) {
+			return true
+		}
+
+		words := strings.Fields(strings.TrimSpace(seg))
+
+		for i, w := range words {
+			if w != "git" {
+				continue
+			}
+
+			sub, rest := gitSubcommand(words[i+1:])
+
+			switch sub {
+			case "branch", "checkout", "restore", "clean":
+				return true
+			case "reset":
+				if hasHardFlag(rest) {
+					return true
+				}
+			}
+
+			break
+		}
+	}
+
+	return false
+}
+
+func hasHardFlag(args []string) bool {
+	for _, a := range args {
+		if a == "--hard" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func detectNoVerify(command string) bool {

@@ -48,6 +48,10 @@ func handlePreToolUse(input hook.Input) *hook.Result {
 		return denyPreToolUse("git --no-verify is blocked because git hooks must run")
 	}
 
+	if detectPolicyBlocked(bashInput.Command) {
+		return denyPreToolUse("policy violation. Skill 'ai-coding-rules' mandatory")
+	}
+
 	ops := detectBlockedOps(bashInput.Command)
 	if len(ops) == 0 {
 		return nil
