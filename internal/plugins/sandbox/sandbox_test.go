@@ -123,6 +123,23 @@ func TestSandbox(t *testing.T) {
 		assert.Nil(t, result)
 	})
 
+	t.Run("denies multiline Bash command", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "echo one\necho two"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "multiline")
+	})
+
 	t.Run("allows after marker with ask", func(t *testing.T) {
 		markerRoot := setupGitRepo(t)
 

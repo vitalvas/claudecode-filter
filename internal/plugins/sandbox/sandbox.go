@@ -56,6 +56,13 @@ func New() hook.Middleware {
 }
 
 func handlePreToolUse(input hook.Input, allowedRoots []string) *hook.Result {
+	if input.ToolName == "Bash" {
+		var ti hook.BashToolInput
+		if err := json.Unmarshal(input.ToolInput, &ti); err == nil && strings.ContainsAny(ti.Command, "\n\r") {
+			return denyPreToolUse("multiline shell commands are permanently blocked")
+		}
+	}
+
 	path := extractPath(input)
 	if path == "" {
 		return nil
