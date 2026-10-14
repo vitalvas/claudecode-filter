@@ -2,9 +2,12 @@ package autoallow
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/vitalvas/claudecode-filter/internal/hook"
 )
+
+const sharedMemoryToolPrefix = "mcp__shared-memory__"
 
 // New creates the autoallow middleware.
 func New() hook.Middleware {
@@ -22,6 +25,10 @@ func New() hook.Middleware {
 
 			if input.HookEventName != hook.EventPermissionRequest {
 				return next(input)
+			}
+
+			if strings.HasPrefix(input.ToolName, sharedMemoryToolPrefix) {
+				return allowPermissionRequest()
 			}
 
 			switch input.ToolName {

@@ -42,4 +42,26 @@ func TestPassthrough(t *testing.T) {
 
 		assert.Nil(t, result)
 	})
+
+	t.Run("allows shared-memory MCP tool in PermissionRequest", func(t *testing.T) {
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "mcp__shared-memory__memory_store",
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PermissionRequestOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
+	})
+
+	t.Run("passes other MCP server in PermissionRequest", func(t *testing.T) {
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "mcp__other-server__some_tool",
+		})
+
+		assert.Nil(t, result)
+	})
 }
