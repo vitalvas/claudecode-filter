@@ -59,6 +59,28 @@ func TestHandleRead(t *testing.T) {
 		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
 	})
 
+	t.Run("allows read from plugin cache", func(t *testing.T) {
+		home := os.Getenv("HOME")
+		if home == "" {
+			t.Skip("HOME not set")
+		}
+
+		toolInput, _ := json.Marshal(readToolInput{
+			FilePath: filepath.Join(home, ".claude", "plugins", "cache", "some-plugin/skills/ref.md"),
+		})
+		result := h(hook.Input{
+			HookEventName: hook.EventPermissionRequest,
+			ToolName:      "Read",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PermissionRequestOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
+	})
+
 	t.Run("does not allow read outside allowed dirs", func(t *testing.T) {
 		toolInput, _ := json.Marshal(readToolInput{
 			FilePath: "/etc/passwd",

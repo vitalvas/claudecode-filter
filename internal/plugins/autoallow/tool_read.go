@@ -23,6 +23,7 @@ func getAllowedReadDirs() []string {
 		if home != "" {
 			allowedReadDirs = append(allowedReadDirs,
 				filepath.Join(home, ".cargo", "registry", "src"),
+				filepath.Join(home, ".claude", "plugins", "cache"),
 				filepath.Join(home, ".rustup"),
 			)
 		}
