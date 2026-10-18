@@ -15,6 +15,118 @@ var blockedOps = []string{
 	"tag",
 }
 
+// safeOps are git subcommands that cannot lose work: state inspection plus
+// index staging (git add, reversible via git restore --staged). They are
+// allowed without an "ok git" approval.
+var safeOps = map[string]bool{
+	"add":          true,
+	"status":       true,
+	"log":          true,
+	"show":         true,
+	"diff":         true,
+	"blame":        true,
+	"rev-parse":    true,
+	"symbolic-ref": true,
+	"describe":     true,
+	"remote":       true,
+	"config":       true,
+	"shortlog":     true,
+	"show-ref":     true,
+	"ls-files":     true,
+	"ls-remote":    true,
+	"cat-file":     true,
+	"reflog":       true,
+	"whatchanged":  true,
+	"name-rev":     true,
+	"var":          true,
+	"version":      true,
+}
+
+// detectSafeGit reports whether every git segment in the command invokes a
+// safe subcommand (see safeOps). A command mixing a safe git call with any
+// other git call is not treated as safe.
+func detectSafeGit(command string) bool {
+	command = quotedStrings.ReplaceAllString(command, "")
+
+	sawGit := false
+
+	for _, seg := range commandSplitter.Split(command, -1) {
+		words := strings.Fields(strings.TrimSpace(seg))
+
+		i := 0
+		for i < len(words) && strings.Contains(words[i], "=") {
+			i++
+		}
+
+		if i >= len(words) || words[i] != "git" {
+			continue
+		}
+
+		sawGit = true
+
+		sub, rest := gitSubcommand(words[i+1:])
+		if !safeOps[sub] {
+			return false
+		}
+
+		// `git config` is read-only only when reading; any value or mutating
+		// flag turns it into a write.
+		if sub == "config" && configWrites(rest) {
+			return false
+		}
+
+		// `git remote` is read-only only for listing/inspection subcommands.
+		if sub == "remote" && remoteWrites(rest) {
+			return false
+		}
+	}
+
+	return sawGit
+}
+
+// configWrites reports whether a `git config` invocation modifies config rather
+// than only reading it.
+func configWrites(args []string) bool {
+	positional := 0
+
+	for _, a := range args {
+		switch a {
+		case "--get", "--get-all", "--get-regexp", "--list", "-l", "--get-urlmatch":
+			return false
+		case "--unset", "--unset-all", "--add", "--replace-all", "--edit", "-e",
+			"--remove-section", "--rename-section":
+			return true
+		}
+
+		if !strings.HasPrefix(a, "-") {
+			positional++
+		}
+	}
+
+	// `git config key value` (two positionals) sets a value; one or zero reads.
+	return positional >= 2
+}
+
+// remoteWrites reports whether a `git remote` invocation modifies remotes.
+func remoteWrites(args []string) bool {
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") {
+			continue
+		}
+
+		switch a {
+		case "add", "remove", "rm", "rename", "set-url", "set-head",
+			"set-branches", "prune", "update":
+			return true
+		}
+
+		// First positional is the subcommand; "show"/"get-url"/"-v" are reads.
+		return false
+	}
+
+	return false
+}
+
 var commandSplitter = regexp.MustCompile(`\s*(?:&&|\|\||;)\s*`)
 
 var quotedStrings = regexp.MustCompile(`"[^"]*"|'[^']*'`)
@@ -22,6 +134,10 @@ var quotedStrings = regexp.MustCompile(`"[^"]*"|'[^']*'`)
 // detectGitCommand reports whether any segment invokes git, honoring a leading
 // run of VAR=val assignments and git's global flags before the subcommand.
 func detectGitCommand(command string) bool {
+	// Strip quoted strings so that separators (&&, ||, ;) and the word "git"
+	// inside a quoted argument are not mistaken for a real git invocation.
+	command = quotedStrings.ReplaceAllString(command, "")
+
 	for _, seg := range commandSplitter.Split(command, -1) {
 		for _, w := range strings.Fields(strings.TrimSpace(seg)) {
 			if strings.Contains(w, "=") {

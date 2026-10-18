@@ -59,7 +59,7 @@ func TestHandlePreToolUse(t *testing.T) {
 		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
 	})
 
-	t.Run("denies read-only git without approval", func(t *testing.T) {
+	t.Run("allows read-only git without approval", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git status"})
 		result := h(hook.Input{
 			HookEventName: hook.EventPreToolUse,
@@ -72,17 +72,11 @@ func TestHandlePreToolUse(t *testing.T) {
 
 		var output hook.PreToolUseOutputWrapper
 		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
-		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.PermissionDecision)
 	})
 
-	t.Run("allows git status after ok git approval", func(t *testing.T) {
-		h(hook.Input{
-			HookEventName: hook.EventUserPromptSubmit,
-			CWD:           gitRoot,
-			Prompt:        "ok git status",
-		})
-
-		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git status"})
+	t.Run("denies mutating git without approval", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git fetch origin"})
 		result := h(hook.Input{
 			HookEventName: hook.EventPreToolUse,
 			CWD:           gitRoot,
@@ -90,7 +84,11 @@ func TestHandlePreToolUse(t *testing.T) {
 			ToolInput:     toolInput,
 		})
 
-		assert.Nil(t, result)
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
 	})
 
 	t.Run("allows non-bash tool", func(t *testing.T) {
@@ -119,7 +117,11 @@ func TestHandlePreToolUse(t *testing.T) {
 		}
 
 		result := h(input)
-		assert.Nil(t, result)
+		require.NotNil(t, result)
+
+		var allowOutput hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &allowOutput))
+		assert.Equal(t, hook.PermissionAllow, allowOutput.HookSpecificOutput.PermissionDecision)
 
 		// Second attempt blocked again (one-time use)
 		result = h(input)
@@ -256,7 +258,11 @@ func TestHandlePreToolUse(t *testing.T) {
 			ToolInput:     toolInput,
 		})
 
-		assert.Nil(t, result)
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.PermissionDecision)
 	})
 }
 
@@ -348,9 +354,14 @@ func TestTimedAllow(t *testing.T) {
 			ToolInput:     toolInput,
 		}
 
-		assert.Nil(t, h(input))
-		assert.Nil(t, h(input))
-		assert.Nil(t, h(input))
+		for range 3 {
+			result := h(input)
+			require.NotNil(t, result)
+
+			var output hook.PreToolUseOutputWrapper
+			require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+			assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.PermissionDecision)
+		}
 
 		marker.Remove(gitRoot, markerName)
 	})

@@ -276,12 +276,51 @@ func TestDetectGitCommand(t *testing.T) {
 		{name: "git after chain", command: "go build ./... && git status", want: true},
 		{name: "not git", command: "go test ./...", want: false},
 		{name: "git substring in arg", command: "grep git README.md", want: false},
+		{name: "git inside quoted string with separator", command: `echo "to deploy run && git push"`, want: false},
+		{name: "git word inside quotes", command: `echo "use git to commit"`, want: false},
 		{name: "empty", command: "", want: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, detectGitCommand(tt.command))
+		})
+	}
+}
+
+func TestDetectSafeGit(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		want    bool
+	}{
+		{name: "add", command: "git add -A", want: true},
+		{name: "add paths", command: "git add internal/ main.go", want: true},
+		{name: "add then commit is not safe", command: "git add -A && git commit -m x", want: false},
+		{name: "status", command: "git status", want: true},
+		{name: "log", command: "git log --oneline -5", want: true},
+		{name: "rev-parse", command: "git rev-parse --verify refs/heads/main", want: true},
+		{name: "symbolic-ref", command: "git symbolic-ref refs/remotes/origin/HEAD", want: true},
+		{name: "remote get-url", command: "git remote get-url origin", want: true},
+		{name: "remote show", command: "git remote -v", want: true},
+		{name: "config read", command: "git config --get user.name", want: true},
+		{name: "env prefix read-only", command: "GIT_PAGER=cat git log", want: true},
+		{name: "chained read-only", command: "git status && git log", want: true},
+		{name: "fetch is not read-only", command: "git fetch origin", want: false},
+		{name: "pull is not read-only", command: "git pull", want: false},
+		{name: "commit is not read-only", command: "git commit -m x", want: false},
+		{name: "config write value", command: "git config user.name Bob", want: false},
+		{name: "config unset", command: "git config --unset user.name", want: false},
+		{name: "remote add", command: "git remote add origin url", want: false},
+		{name: "remote set-url", command: "git remote set-url origin url", want: false},
+		{name: "mixed read and write", command: "git status && git push", want: false},
+		{name: "not git", command: "go test ./...", want: false},
+		{name: "empty", command: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, detectSafeGit(tt.command))
 		})
 	}
 }

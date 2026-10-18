@@ -55,6 +55,13 @@ func handlePreToolUse(input hook.Input) *hook.Result {
 		return nil
 	}
 
+	// Safe git (status, log, rev-parse, remote get-url, add, ...) cannot lose
+	// work, so it is allowed without an "ok git" approval. Emit an explicit
+	// allow so Claude Code does not prompt for it.
+	if detectSafeGit(bashInput.Command) {
+		return allowPreToolUse()
+	}
+
 	if header, ok := containsBlockedCommitHeader(bashInput.Command); ok {
 		return denyPreToolUse(fmt.Sprintf("commit messages must not contain '%s' headers", header))
 	}
@@ -71,7 +78,7 @@ func handlePreToolUse(input hook.Input) *hook.Result {
 	}
 
 	if isAllowed(input.CWD) {
-		return nil
+		return allowPreToolUse()
 	}
 
 	op := "command"
@@ -158,6 +165,24 @@ func isAllowed(cwd string) bool {
 
 func handleSessionEnd(input hook.Input) {
 	marker.Cleanup(input.CWD)
+}
+
+func allowPreToolUse() *hook.Result {
+	output := hook.PreToolUseOutputWrapper{
+		HookSpecificOutput: hook.PreToolUseOutput{
+			HookEventName:      hook.EventPreToolUse,
+			PermissionDecision: hook.PermissionAllow,
+		},
+	}
+
+	data, err := json.Marshal(output)
+	if err != nil {
+		return nil
+	}
+
+	return &hook.Result{
+		Stdout: string(data),
+	}
 }
 
 func denyPreToolUse(reason string) *hook.Result {
