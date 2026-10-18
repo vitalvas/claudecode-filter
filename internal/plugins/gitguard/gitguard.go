@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/vitalvas/claudecode-filter/internal/hook"
@@ -52,8 +51,7 @@ func handlePreToolUse(input hook.Input) *hook.Result {
 		return denyPreToolUse("policy violation. Skill 'ai-coding-rules' mandatory")
 	}
 
-	ops := detectBlockedOps(bashInput.Command)
-	if len(ops) == 0 {
+	if !detectGitCommand(bashInput.Command) {
 		return nil
 	}
 
@@ -76,11 +74,15 @@ func handlePreToolUse(input hook.Input) *hook.Result {
 		return nil
 	}
 
+	op := "command"
+	if ops := detectBlockedOps(bashInput.Command); len(ops) > 0 {
+		op = ops[0]
+	}
+
 	return denyPreToolUse(fmt.Sprintf(
-		"git %s requires explicit user approval. Ask the user to say \"ok git %s\" (one-shot) or \"ok git %s for 1h\" (timed).",
-		strings.Join(ops, ", "),
-		ops[0],
-		ops[0],
+		"git requires explicit user approval. Ask the user to say \"ok git %s\" (one-shot) or \"ok git %s for 1h\" (timed).",
+		op,
+		op,
 	))
 }
 

@@ -319,9 +319,9 @@ func TestHandleBash(t *testing.T) {
 		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
 	})
 
-	t.Run("allows git commit with path in message", func(t *testing.T) {
+	t.Run("allows command with abs path inside quoted arg", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{
-			Command: `git commit -m "feat: add /oauth2/v1/groups endpoint"`,
+			Command: `grep -r "see /oauth2/v1/groups endpoint" .`,
 		})
 		result := h(hook.Input{
 			HookEventName: hook.EventPermissionRequest,

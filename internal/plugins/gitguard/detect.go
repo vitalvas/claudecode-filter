@@ -19,6 +19,26 @@ var commandSplitter = regexp.MustCompile(`\s*(?:&&|\|\||;)\s*`)
 
 var quotedStrings = regexp.MustCompile(`"[^"]*"|'[^']*'`)
 
+// detectGitCommand reports whether any segment invokes git, honoring a leading
+// run of VAR=val assignments and git's global flags before the subcommand.
+func detectGitCommand(command string) bool {
+	for _, seg := range commandSplitter.Split(command, -1) {
+		for _, w := range strings.Fields(strings.TrimSpace(seg)) {
+			if strings.Contains(w, "=") {
+				continue
+			}
+
+			if w == "git" {
+				return true
+			}
+
+			break
+		}
+	}
+
+	return false
+}
+
 func detectBlockedOps(command string) []string {
 	segments := commandSplitter.Split(command, -1)
 

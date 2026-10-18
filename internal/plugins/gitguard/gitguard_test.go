@@ -59,7 +59,29 @@ func TestHandlePreToolUse(t *testing.T) {
 		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
 	})
 
-	t.Run("allows git status", func(t *testing.T) {
+	t.Run("denies read-only git without approval", func(t *testing.T) {
+		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git status"})
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			CWD:           gitRoot,
+			ToolName:      "Bash",
+			ToolInput:     toolInput,
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+	})
+
+	t.Run("allows git status after ok git approval", func(t *testing.T) {
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "ok git status",
+		})
+
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "git status"})
 		result := h(hook.Input{
 			HookEventName: hook.EventPreToolUse,

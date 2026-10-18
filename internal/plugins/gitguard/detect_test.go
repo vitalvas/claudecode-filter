@@ -264,6 +264,28 @@ func TestDetectBlockedOps(t *testing.T) {
 	}
 }
 
+func TestDetectGitCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		want    bool
+	}{
+		{name: "git status", command: "git status", want: true},
+		{name: "git log read-only", command: "git log --oneline", want: true},
+		{name: "git with env prefix", command: "GIT_PAGER=cat git diff", want: true},
+		{name: "git after chain", command: "go build ./... && git status", want: true},
+		{name: "not git", command: "go test ./...", want: false},
+		{name: "git substring in arg", command: "grep git README.md", want: false},
+		{name: "empty", command: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, detectGitCommand(tt.command))
+		})
+	}
+}
+
 func TestDetectNoVerify(t *testing.T) {
 	tests := []struct {
 		name    string
