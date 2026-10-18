@@ -70,6 +70,7 @@ var allowedBashPrefixes = []string{
 	"go clean",
 	"go doc",
 	"go env",
+	"go fix",
 	"go fmt",
 	"go get",
 	"go list",
