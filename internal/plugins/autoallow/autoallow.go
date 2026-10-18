@@ -13,6 +13,25 @@ const sharedMemoryToolPrefix = "mcp__shared-memory__"
 func New() hook.Middleware {
 	return func(next hook.Handler) hook.Handler {
 		return func(input hook.Input) *hook.Result {
+			// Pure-allow tools: Claude Code gates these on PreToolUse, so the
+			// allow decision must be emitted there (and on PermissionRequest).
+			if input.HookEventName == hook.EventPreToolUse || input.HookEventName == hook.EventPermissionRequest {
+				if strings.HasPrefix(input.ToolName, sharedMemoryToolPrefix) {
+					return allowResult(input.HookEventName)
+				}
+
+				switch input.ToolName {
+				case "Read", "Grep", "Glob":
+					if result := handleRead(input); result != nil {
+						return result
+					}
+				case "WebSearch":
+					return allowResult(input.HookEventName)
+				}
+			}
+
+			// Bash deny runs on PreToolUse; Bash/WebFetch allow is
+			// PermissionRequest-only (their deny paths are request-shaped).
 			if input.HookEventName == hook.EventPreToolUse {
 				if input.ToolName == "Bash" {
 					if result := handleBashDeny(input); result != nil {
@@ -27,10 +46,6 @@ func New() hook.Middleware {
 				return next(input)
 			}
 
-			if strings.HasPrefix(input.ToolName, sharedMemoryToolPrefix) {
-				return allowPermissionRequest()
-			}
-
 			switch input.ToolName {
 			case "Bash":
 				if result := handleBashDeny(input); result != nil {
@@ -40,16 +55,10 @@ func New() hook.Middleware {
 				if result := handleBash(input); result != nil {
 					return result
 				}
-			case "Read", "Grep", "Glob":
-				if result := handleRead(input); result != nil {
-					return result
-				}
 			case "WebFetch":
 				if result := handleWebFetch(input); result != nil {
 					return result
 				}
-			case "WebSearch":
-				return allowPermissionRequest()
 			}
 
 			return next(input)
@@ -102,7 +111,28 @@ func denyPermissionRequest(reason string) *hook.Result {
 	}
 }
 
-func allowPermissionRequest() *hook.Result {
+// allowResult emits an allow decision in the output shape for the given event.
+// Claude Code gates Read/Bash/etc. on PreToolUse, so a PermissionRequest-shaped
+// allow is ignored there; the shape must match the event.
+func allowResult(event string) *hook.Result {
+	if event == hook.EventPreToolUse {
+		output := hook.PreToolUseOutputWrapper{
+			HookSpecificOutput: hook.PreToolUseOutput{
+				HookEventName:      hook.EventPreToolUse,
+				PermissionDecision: hook.PermissionAllow,
+			},
+		}
+
+		data, err := json.Marshal(output)
+		if err != nil {
+			return nil
+		}
+
+		return &hook.Result{
+			Stdout: string(data),
+		}
+	}
+
 	output := hook.PermissionRequestOutputWrapper{
 		HookSpecificOutput: hook.PermissionRequestOutput{
 			HookEventName: hook.EventPermissionRequest,

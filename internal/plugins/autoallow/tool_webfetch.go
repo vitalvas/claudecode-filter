@@ -44,13 +44,13 @@ func handleWebFetch(input hook.Input) *hook.Result {
 
 	for _, domain := range allowedWebFetchDomains {
 		if hostname == domain {
-			return allowPermissionRequest()
+			return allowResult(input.HookEventName)
 		}
 	}
 
 	for _, pattern := range allowedWebFetchPatterns {
 		if matched, _ := xstrings.GlobMatch(pattern, hostname); matched {
-			return allowPermissionRequest()
+			return allowResult(input.HookEventName)
 		}
 	}
 

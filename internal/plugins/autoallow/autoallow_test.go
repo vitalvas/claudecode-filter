@@ -64,4 +64,17 @@ func TestPassthrough(t *testing.T) {
 
 		assert.Nil(t, result)
 	})
+
+	t.Run("allows shared-memory MCP tool in PreToolUse", func(t *testing.T) {
+		result := h(hook.Input{
+			HookEventName: hook.EventPreToolUse,
+			ToolName:      "mcp__shared-memory__memory_store",
+		})
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.PermissionDecision)
+	})
 }

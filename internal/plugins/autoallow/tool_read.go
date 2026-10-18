@@ -62,12 +62,12 @@ func handleRead(input hook.Input) *hook.Result {
 	target = expandHome(target)
 
 	if input.CWD != "" && isUnderDir(target, input.CWD) {
-		return allowPermissionRequest()
+		return allowResult(input.HookEventName)
 	}
 
 	for _, dir := range getAllowedReadDirs() {
 		if strings.HasPrefix(target, fmt.Sprintf("%s/", dir)) {
-			return allowPermissionRequest()
+			return allowResult(input.HookEventName)
 		}
 	}
 

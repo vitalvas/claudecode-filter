@@ -157,11 +157,11 @@ func handleBash(input hook.Input) *hook.Result {
 			return denyPermissionRequest("command references paths outside the project directory")
 		}
 
-		return allowPermissionRequest()
+		return allowResult(input.HookEventName)
 	}
 
 	if input.CWD != "" && isProjectScopedCommand(stripEnvVars(bashInput.Command), input.CWD) {
-		return allowPermissionRequest()
+		return allowResult(input.HookEventName)
 	}
 
 	return nil
