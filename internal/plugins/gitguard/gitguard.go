@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/vitalvas/claudecode-filter/internal/hook"
@@ -93,10 +94,14 @@ func handlePreToolUse(input hook.Input) *hook.Result {
 	))
 }
 
-var okGitRe = regexp.MustCompile(`(?i)\bok\s+git\s+[\w-]+(?:\s+for\s+(\d+[hm]))?`)
+// okGitRe is anchored to the whole prompt so approval is granted only when the
+// user's message IS the approval command (e.g. "ok git commit" or
+// "ok git push for 1h"). A prompt that merely mentions or quotes the phrase
+// mid-sentence must NOT grant approval, or a commit could execute unapproved.
+var okGitRe = regexp.MustCompile(`(?i)^ok\s+git\s+[\w-]+(?:\s+for\s+(\d+[hm]))?$`)
 
 func handleUserPromptSubmit(input hook.Input) {
-	matches := okGitRe.FindStringSubmatch(input.Prompt)
+	matches := okGitRe.FindStringSubmatch(strings.TrimSpace(input.Prompt))
 	if matches == nil {
 		return
 	}
