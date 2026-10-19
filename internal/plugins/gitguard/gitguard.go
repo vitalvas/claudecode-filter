@@ -95,10 +95,13 @@ func handlePreToolUse(input hook.Input) *hook.Result {
 }
 
 // okGitRe is anchored to the whole prompt so approval is granted only when the
-// user's message IS the approval command (e.g. "ok git commit" or
-// "ok git push for 1h"). A prompt that merely mentions or quotes the phrase
-// mid-sentence must NOT grant approval, or a commit could execute unapproved.
-var okGitRe = regexp.MustCompile(`(?i)^ok\s+git\s+[\w-]+(?:\s+for\s+(\d+[hm]))?$`)
+// user's message IS the approval command (e.g. "ok git commit",
+// "ok git push for 1h", or "ok git commit as docs"). A prompt that merely
+// mentions or quotes the phrase mid-sentence must NOT grant approval, or a
+// commit could execute unapproved. An optional trailing "for <dur>" sets a
+// timed marker; an optional trailing "as <type>" carries a commit-type choice
+// the user already made and does not affect the gate.
+var okGitRe = regexp.MustCompile(`(?i)^ok\s+git\s+[\w-]+(?:\s+as\s+[\w-]+)?(?:\s+for\s+(\d+[hm]))?$`)
 
 func handleUserPromptSubmit(input hook.Input) {
 	matches := okGitRe.FindStringSubmatch(strings.TrimSpace(input.Prompt))

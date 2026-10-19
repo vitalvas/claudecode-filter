@@ -366,6 +366,40 @@ func TestHandleUserPromptSubmit(t *testing.T) {
 		_, ok := marker.Consume(gitRoot, markerName)
 		assert.True(t, ok)
 	})
+
+	t.Run("approval with type qualifier", func(t *testing.T) {
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "ok git commit as docs",
+		})
+
+		_, ok := marker.Consume(gitRoot, markerName)
+		assert.True(t, ok)
+	})
+
+	t.Run("approval with type qualifier and duration", func(t *testing.T) {
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        "ok git commit as docs for 1h",
+		})
+
+		val, ok := marker.Consume(gitRoot, markerName)
+		assert.True(t, ok)
+		assert.NotEqual(t, "1", val)
+	})
+
+	t.Run("type qualifier mid-sentence does not approve", func(t *testing.T) {
+		h(hook.Input{
+			HookEventName: hook.EventUserPromptSubmit,
+			CWD:           gitRoot,
+			Prompt:        `reply ok git commit as docs to proceed`,
+		})
+
+		_, ok := marker.Consume(gitRoot, markerName)
+		assert.False(t, ok)
+	})
 }
 
 func TestTimedAllow(t *testing.T) {
