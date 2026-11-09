@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/vitalvas/claudecode-filter/internal/hook"
@@ -122,6 +123,10 @@ func handleRead(input hook.Input, blockedDirs []blockedDir, allowedDirs []string
 
 	filePath := expandHome(readInput.FilePath)
 	base := filepath.Base(filePath)
+
+	if isOwnToolResult(filePath, input.CWD) {
+		return allowResult(input.HookEventName)
+	}
 
 	for _, dir := range blockedDirs {
 		if dir.beforeAllow && isUnderDir(filePath, dir.path) {
@@ -291,6 +296,31 @@ func gitRoot(dir string) string {
 	}
 }
 
+var nonAlnum = regexp.MustCompile(`[^A-Za-z0-9]`)
+
+// isOwnToolResult reports whether path is a Claude Code tool-result file of the
+// current project: ~/.claude/projects/<encoded cwd>/<session>/tool-results/<file>.
+// Claude Code encodes the project dir by replacing every non-alphanumeric
+// character of the cwd with '-'. Only this exact shape is exempt from the
+// ~/.claude/projects block; transcripts, memory, and other projects stay blocked.
+func isOwnToolResult(path, cwd string) bool {
+	home := os.Getenv("HOME")
+	if home == "" || cwd == "" {
+		return false
+	}
+
+	projectDir := filepath.Join(home, ".claude", "projects", nonAlnum.ReplaceAllString(cwd, "-"))
+
+	rel, err := filepath.Rel(projectDir, filepath.Clean(path))
+	if err != nil {
+		return false
+	}
+
+	parts := strings.Split(rel, string(filepath.Separator))
+
+	return len(parts) == 3 && parts[0] != ".." && parts[1] == "tool-results"
+}
+
 func isAllowed(base string) bool {
 	for _, pattern := range allowedPatterns {
 		matched, err := xstrings.GlobMatch(pattern, base)
@@ -340,6 +370,14 @@ func isUnderDir(filePath, dir string) bool {
 	}
 
 	return len(rel) > 0 && !strings.HasPrefix(rel, "..")
+}
+
+func allowResult(event string) *hook.Result {
+	if event == hook.EventPermissionRequest {
+		return permissionRequestResult(hook.PermissionAllow, "")
+	}
+
+	return preToolUseResult(hook.PermissionAllow, "")
 }
 
 func askResult(event, reason string) *hook.Result {

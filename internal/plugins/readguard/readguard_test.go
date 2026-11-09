@@ -410,6 +410,95 @@ func makeInputWithCWD(toolName, event string, toolInput any, cwd string) hook.In
 	return input
 }
 
+func TestIsOwnToolResult(t *testing.T) {
+	t.Setenv("HOME", "/home/u")
+
+	cwd := "/Users/vitalvas/workspace/github/vitalvas/tukandb"
+	own := "/home/u/.claude/projects/-Users-vitalvas-workspace-github-vitalvas-tukandb"
+
+	tests := []struct {
+		name string
+		path string
+		cwd  string
+		want bool
+	}{
+		{name: "own tool result", path: fmt.Sprintf("%s/b5a71d84/tool-results/bhn0zl96l.txt", own), cwd: cwd, want: true},
+		{name: "other project tool result", path: "/home/u/.claude/projects/-other-repo/b5a71d84/tool-results/x.txt", cwd: cwd, want: false},
+		{name: "own transcript", path: fmt.Sprintf("%s/b5a71d84.jsonl", own), cwd: cwd, want: false},
+		{name: "own session file outside tool-results", path: fmt.Sprintf("%s/b5a71d84/notes.txt", own), cwd: cwd, want: false},
+		{name: "own memory", path: fmt.Sprintf("%s/memory/MEMORY.md", own), cwd: cwd, want: false},
+		{name: "nested under tool-results", path: fmt.Sprintf("%s/b5a71d84/tool-results/sub/x.txt", own), cwd: cwd, want: false},
+		{name: "dot-dot escape", path: fmt.Sprintf("%s/b5a71d84/tool-results/../../memory/MEMORY.md", own), cwd: cwd, want: false},
+		{name: "tool-results directly under projects", path: "/home/u/.claude/projects/tool-results/x.txt", cwd: cwd, want: false},
+		{name: "empty cwd", path: fmt.Sprintf("%s/b5a71d84/tool-results/x.txt", own), cwd: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isOwnToolResult(tt.path, tt.cwd))
+		})
+	}
+}
+
+func TestHandleReadToolResult(t *testing.T) {
+	t.Setenv("HOME", "/home/u")
+
+	cwd := "/Users/vitalvas/workspace/github/vitalvas/tukandb"
+	own := "/home/u/.claude/projects/-Users-vitalvas-workspace-github-vitalvas-tukandb"
+
+	t.Run("allows own tool result on PreToolUse", func(t *testing.T) {
+		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
+			FilePath: fmt.Sprintf("%s/b5a71d84/tool-results/bhn0zl96l.txt", own),
+		}, cwd)
+		result := handleRead(input, blockedDirectories(), nil)
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.PermissionDecision)
+	})
+
+	t.Run("allows own tool result on PermissionRequest", func(t *testing.T) {
+		input := makeInputWithCWD("Read", hook.EventPermissionRequest, hook.ReadToolInput{
+			FilePath: fmt.Sprintf("%s/b5a71d84/tool-results/bhn0zl96l.txt", own),
+		}, cwd)
+		result := handleRead(input, blockedDirectories(), nil)
+
+		require.NotNil(t, result)
+
+		var output hook.PermissionRequestOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
+	})
+
+	t.Run("still blocks own transcript", func(t *testing.T) {
+		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
+			FilePath: fmt.Sprintf("%s/b5a71d84.jsonl", own),
+		}, cwd)
+		result := handleRead(input, blockedDirectories(), nil)
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+	})
+
+	t.Run("still blocks other project tool result", func(t *testing.T) {
+		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
+			FilePath: "/home/u/.claude/projects/-other-repo/b5a71d84/tool-results/x.txt",
+		}, cwd)
+		result := handleRead(input, blockedDirectories(), nil)
+
+		require.NotNil(t, result)
+
+		var output hook.PreToolUseOutputWrapper
+		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
+	})
+}
+
 func TestHandleBashCd(t *testing.T) {
 	h := hook.BuildChain(New())
 	project := t.TempDir()
