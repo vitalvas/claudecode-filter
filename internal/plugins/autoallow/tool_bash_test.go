@@ -117,6 +117,23 @@ func TestHandleBash(t *testing.T) {
 		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior)
 	})
 
+	t.Run("allows any gh issue subcommand", func(t *testing.T) {
+		for _, cmd := range []string{"gh issue list", "gh issue view 12", "gh issue create --title x --body y", "gh issue comment 12 --body y"} {
+			toolInput, _ := json.Marshal(hook.BashToolInput{Command: cmd})
+			result := h(hook.Input{
+				HookEventName: hook.EventPermissionRequest,
+				ToolName:      "Bash",
+				ToolInput:     toolInput,
+			})
+
+			require.NotNil(t, result, cmd)
+
+			var output hook.PermissionRequestOutputWrapper
+			require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
+			assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.Decision.Behavior, cmd)
+		}
+	})
+
 	t.Run("allows gh repo view", func(t *testing.T) {
 		toolInput, _ := json.Marshal(hook.BashToolInput{Command: "gh repo view owner/repo"})
 		result := h(hook.Input{
