@@ -35,6 +35,7 @@ var safeOps = map[string]bool{
 	"ls-files":     true,
 	"ls-remote":    true,
 	"cat-file":     true,
+	"check-ignore": true,
 	"reflog":       true,
 	"whatchanged":  true,
 	"name-rev":     true,

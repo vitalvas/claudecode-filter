@@ -298,6 +298,7 @@ func TestDetectSafeGit(t *testing.T) {
 		{name: "add paths", command: "git add internal/ main.go", want: true},
 		{name: "add then commit is not safe", command: "git add -A && git commit -m x", want: false},
 		{name: "status", command: "git status", want: true},
+		{name: "check-ignore", command: "git check-ignore -v .tmp/foo", want: true},
 		{name: "log", command: "git log --oneline -5", want: true},
 		{name: "rev-parse", command: "git rev-parse --verify refs/heads/main", want: true},
 		{name: "symbolic-ref", command: "git symbolic-ref refs/remotes/origin/HEAD", want: true},
