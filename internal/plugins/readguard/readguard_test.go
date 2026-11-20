@@ -325,7 +325,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 	t.Run("asks $GOPATH/src outside project with marker", func(t *testing.T) {
 		cwd := t.TempDir()
 		require.NoError(t, os.Mkdir(filepath.Join(cwd, ".git"), 0o755))
-		require.NoError(t, marker.Create(cwd, "allow-extread", "1"))
+		require.NoError(t, marker.Create(cwd, "allow-rootread", "1"))
 
 		dirs := []blockedDir{{path: "/gopath/src", allowProject: true}}
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
@@ -367,7 +367,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 	t.Run("asks read outside project with marker", func(t *testing.T) {
 		cwd := t.TempDir()
 		require.NoError(t, os.Mkdir(filepath.Join(cwd, ".git"), 0o755))
-		require.NoError(t, marker.Create(cwd, "allow-extread", "1"))
+		require.NoError(t, marker.Create(cwd, "allow-rootread", "1"))
 
 		var dirs []blockedDir
 		input := makeInputWithCWD("Read", hook.EventPreToolUse, hook.ReadToolInput{
@@ -541,7 +541,7 @@ func TestHandleBashCd(t *testing.T) {
 	t.Run("asks cd outside project with marker", func(t *testing.T) {
 		markerRoot := t.TempDir()
 		require.NoError(t, os.Mkdir(filepath.Join(markerRoot, ".git"), 0o755))
-		require.NoError(t, marker.Create(markerRoot, "allow-extread", "1"))
+		require.NoError(t, marker.Create(markerRoot, "allow-rootread", "1"))
 
 		input := makeInputWithCWD("Bash", hook.EventPreToolUse,
 			hook.BashToolInput{Command: fmt.Sprintf("cd %s && git diff", outside)}, markerRoot)

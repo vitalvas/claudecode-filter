@@ -14,6 +14,11 @@ import (
 	"github.com/vitalvas/gokit/xstrings"
 )
 
+// extreadMarker is the marker that grants approval-gated reads outside the
+// project. It is created by the sandbox plugin when the user says
+// "ok allow rootread", so the name must match sandbox's marker.
+const extreadMarker = "allow-rootread"
+
 type rule struct {
 	pattern   string
 	matchFull bool
@@ -149,7 +154,7 @@ func handleRead(input hook.Input, blockedDirs []blockedDir, allowedDirs []string
 		}
 
 		if dir.allowProject {
-			if input.CWD != "" && marker.Exists(input.CWD, "allow-extread") {
+			if input.CWD != "" && marker.Exists(input.CWD, extreadMarker) {
 				return askResult(input.HookEventName, fmt.Sprintf("reading files under %s outside project requires approval", dir.path))
 			}
 
@@ -182,7 +187,7 @@ func handleRead(input hook.Input, blockedDirs []blockedDir, allowedDirs []string
 	}
 
 	if input.CWD != "" && !isUnderDir(filePath, input.CWD) {
-		if marker.Exists(input.CWD, "allow-extread") {
+		if marker.Exists(input.CWD, extreadMarker) {
 			return askResult(input.HookEventName, "reading files outside the project directory requires approval")
 		}
 
@@ -220,7 +225,7 @@ func handleBashCd(input hook.Input) *hook.Result {
 			continue
 		}
 
-		if marker.Exists(input.CWD, "allow-extread") {
+		if marker.Exists(input.CWD, extreadMarker) {
 			return askResult(input.HookEventName, fmt.Sprintf("accessing %s outside project requires approval", target))
 		}
 
