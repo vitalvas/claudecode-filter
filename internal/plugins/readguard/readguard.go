@@ -14,9 +14,10 @@ import (
 	"github.com/vitalvas/gokit/xstrings"
 )
 
-// extreadMarker is the marker that grants approval-gated reads outside the
-// project. It is created by the sandbox plugin when the user says
-// "ok allow rootread", so the name must match sandbox's marker.
+// extreadMarker is the marker that grants reads outside the project. It is
+// created by the sandbox plugin when the user says "ok allow rootread", so the
+// name must match sandbox's marker. When present, external reads are allowed
+// outright rather than prompting per file.
 const extreadMarker = "allow-rootread"
 
 type rule struct {
@@ -155,7 +156,7 @@ func handleRead(input hook.Input, blockedDirs []blockedDir, allowedDirs []string
 
 		if dir.allowProject {
 			if input.CWD != "" && marker.Exists(input.CWD, extreadMarker) {
-				return askResult(input.HookEventName, fmt.Sprintf("reading files under %s outside project requires approval", dir.path))
+				return allowResult(input.HookEventName)
 			}
 
 			return denyResult(input.HookEventName, fmt.Sprintf("reading files under %s outside project is not allowed", dir.path))
@@ -188,7 +189,7 @@ func handleRead(input hook.Input, blockedDirs []blockedDir, allowedDirs []string
 
 	if input.CWD != "" && !isUnderDir(filePath, input.CWD) {
 		if marker.Exists(input.CWD, extreadMarker) {
-			return askResult(input.HookEventName, "reading files outside the project directory requires approval")
+			return allowResult(input.HookEventName)
 		}
 
 		return denyResult(input.HookEventName, "reading files outside the project directory is not allowed")
@@ -226,7 +227,7 @@ func handleBashCd(input hook.Input) *hook.Result {
 		}
 
 		if marker.Exists(input.CWD, extreadMarker) {
-			return askResult(input.HookEventName, fmt.Sprintf("accessing %s outside project requires approval", target))
+			return allowResult(input.HookEventName)
 		}
 
 		return denyResult(input.HookEventName, fmt.Sprintf("accessing %s outside project is not allowed", target))
@@ -383,14 +384,6 @@ func allowResult(event string) *hook.Result {
 	}
 
 	return preToolUseResult(hook.PermissionAllow, "")
-}
-
-func askResult(event, reason string) *hook.Result {
-	if event == hook.EventPermissionRequest {
-		return permissionRequestResult(hook.PermissionAsk, reason)
-	}
-
-	return preToolUseResult(hook.PermissionAsk, reason)
 }
 
 func denyResult(event, reason string) *hook.Result {

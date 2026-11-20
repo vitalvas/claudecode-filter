@@ -81,11 +81,11 @@ func handlePreToolUse(input hook.Input, allowedRoots []string) *hook.Result {
 	}
 
 	if input.CWD != "" && marker.Exists(input.CWD, markerName) {
-		return askPreToolUse(fmt.Sprintf("accessing %s outside sandbox requires approval", path))
+		return allowPreToolUse()
 	}
 
 	return denyPreToolUse(
-		"accessing files outside sandbox is blocked. Say \"ok allow rootread\" to enable with approval.",
+		"accessing files outside sandbox is blocked. Say \"ok allow rootread\" to enable.",
 	)
 }
 
@@ -187,12 +187,11 @@ func handleUserPromptSubmit(input hook.Input) {
 	marker.Create(input.CWD, markerName, "1")
 }
 
-func askPreToolUse(reason string) *hook.Result {
+func allowPreToolUse() *hook.Result {
 	output := hook.PreToolUseOutputWrapper{
 		HookSpecificOutput: hook.PreToolUseOutput{
-			HookEventName:            hook.EventPreToolUse,
-			PermissionDecision:       hook.PermissionAsk,
-			PermissionDecisionReason: reason,
+			HookEventName:      hook.EventPreToolUse,
+			PermissionDecision: hook.PermissionAllow,
 		},
 	}
 

@@ -140,7 +140,7 @@ func TestSandbox(t *testing.T) {
 		assert.Contains(t, output.HookSpecificOutput.PermissionDecisionReason, "multiline")
 	})
 
-	t.Run("allows after marker with ask", func(t *testing.T) {
+	t.Run("allows after marker set", func(t *testing.T) {
 		markerRoot := setupGitRepo(t)
 
 		h(hook.Input{
@@ -161,7 +161,7 @@ func TestSandbox(t *testing.T) {
 
 		var output hook.PreToolUseOutputWrapper
 		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
-		assert.Equal(t, hook.PermissionAsk, output.HookSpecificOutput.PermissionDecision)
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.PermissionDecision)
 	})
 
 	t.Run("marker is not consumed", func(t *testing.T) {
@@ -178,7 +178,7 @@ func TestSandbox(t *testing.T) {
 		})
 		require.NotNil(t, result)
 
-		// Second call should also ask, not deny
+		// Second call should also allow, not deny
 		result = h(hook.Input{
 			HookEventName: hook.EventPreToolUse,
 			CWD:           markerRoot,
@@ -189,7 +189,7 @@ func TestSandbox(t *testing.T) {
 
 		var output hook.PreToolUseOutputWrapper
 		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
-		assert.Equal(t, hook.PermissionAsk, output.HookSpecificOutput.PermissionDecision)
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.PermissionDecision)
 	})
 
 	t.Run("ignores non-PreToolUse events", func(t *testing.T) {

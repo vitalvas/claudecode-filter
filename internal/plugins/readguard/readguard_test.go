@@ -322,7 +322,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
 	})
 
-	t.Run("asks $GOPATH/src outside project with marker", func(t *testing.T) {
+	t.Run("allows $GOPATH/src outside project with marker", func(t *testing.T) {
 		cwd := t.TempDir()
 		require.NoError(t, os.Mkdir(filepath.Join(cwd, ".git"), 0o755))
 		require.NoError(t, marker.Create(cwd, "allow-rootread", "1"))
@@ -337,7 +337,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 
 		var output hook.PreToolUseOutputWrapper
 		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
-		assert.Equal(t, hook.PermissionAsk, output.HookSpecificOutput.PermissionDecision)
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.PermissionDecision)
 	})
 
 	t.Run("allows $GOPATH/src inside project", func(t *testing.T) {
@@ -364,7 +364,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 		assert.Equal(t, hook.PermissionDeny, output.HookSpecificOutput.PermissionDecision)
 	})
 
-	t.Run("asks read outside project with marker", func(t *testing.T) {
+	t.Run("allows read outside project with marker", func(t *testing.T) {
 		cwd := t.TempDir()
 		require.NoError(t, os.Mkdir(filepath.Join(cwd, ".git"), 0o755))
 		require.NoError(t, marker.Create(cwd, "allow-rootread", "1"))
@@ -379,7 +379,7 @@ func TestHandleReadBlockedDirs(t *testing.T) {
 
 		var output hook.PreToolUseOutputWrapper
 		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
-		assert.Equal(t, hook.PermissionAsk, output.HookSpecificOutput.PermissionDecision)
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.PermissionDecision)
 	})
 
 	t.Run("allows read inside project", func(t *testing.T) {
@@ -538,7 +538,7 @@ func TestHandleBashCd(t *testing.T) {
 		assert.Nil(t, h(input))
 	})
 
-	t.Run("asks cd outside project with marker", func(t *testing.T) {
+	t.Run("allows cd outside project with marker", func(t *testing.T) {
 		markerRoot := t.TempDir()
 		require.NoError(t, os.Mkdir(filepath.Join(markerRoot, ".git"), 0o755))
 		require.NoError(t, marker.Create(markerRoot, "allow-rootread", "1"))
@@ -551,7 +551,7 @@ func TestHandleBashCd(t *testing.T) {
 
 		var output hook.PreToolUseOutputWrapper
 		require.NoError(t, json.Unmarshal([]byte(result.Stdout), &output))
-		assert.Equal(t, hook.PermissionAsk, output.HookSpecificOutput.PermissionDecision)
+		assert.Equal(t, hook.PermissionAllow, output.HookSpecificOutput.PermissionDecision)
 	})
 
 	t.Run("denies on PermissionRequest event", func(t *testing.T) {
